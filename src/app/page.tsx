@@ -22,15 +22,7 @@ export default function HomePage() {
             로그아웃
           </Button>
         ) : (
-          <Link href="/auth/login">
-            <Button
-              variant="ghost"
-              className="text-gray-600 hover:text-primary-500"
-            >
-              <LogIn className="mr-2 h-4 w-4" />
-              로그인
-            </Button>
-          </Link>
+          <></>
         )}
       </nav>
 
