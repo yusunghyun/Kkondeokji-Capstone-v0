@@ -1,0 +1,45 @@
+import Link from "next/link"
+import { Button } from "@/shared/ui/button"
+import { QrCode } from "lucide-react"
+
+export default function HomePage() {
+  return (
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-full max-w-md space-y-8">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-primary-500">껀덕지</h1>
+            <p className="text-lg text-gray-600">공통 관심사를 찾고 대화를 시작하세요</p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl blur opacity-30"></div>
+            <div className="relative bg-white rounded-xl p-6 shadow-sm">
+              <p className="text-gray-700 mb-6">
+                30초 설문으로 새로운 친구와의 공통점을 발견하고, 의미있는 대화를 시작해보세요.
+              </p>
+
+              <Link href="/onboarding" className="w-full">
+                <Button className="w-full bg-primary-500 hover:bg-primary-600 text-white rounded-full py-6">
+                  30초 설문 시작하기
+                </Button>
+              </Link>
+
+              <div className="mt-4">
+                <Link
+                  href="/scan"
+                  className="text-secondary-500 hover:text-secondary-600 flex items-center justify-center"
+                >
+                  <QrCode className="mr-2 h-4 w-4" />
+                  QR 스캔으로 바로 매칭하기
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="py-4 text-center text-sm text-gray-500">© 2023 껀덕지. All rights reserved.</footer>
+    </div>
+  )
+}
