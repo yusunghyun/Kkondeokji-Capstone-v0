@@ -34,7 +34,12 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
+  const { error: refreshError } = await supabase.auth.refreshSession();
   const { error } = await supabase.auth.signOut();
+
+  if (refreshError) {
+    throw new Error(refreshError.message);
+  }
 
   if (error) {
     throw new Error(error.message);
