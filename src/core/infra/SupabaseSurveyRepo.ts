@@ -1,6 +1,12 @@
-import type { SurveyTemplate, Question, Option, UserSurvey, UserResponse } from "@/shared/types/domain"
-import type { SurveyRepo } from "@/core/repositories/SurveyRepo"
-import { supabase } from "@/shared/utils/supabaseClient"
+import type {
+  SurveyTemplate,
+  Question,
+  Option,
+  UserSurvey,
+  UserResponse,
+} from "@/shared/types/domain";
+import type { SurveyRepo } from "@/core/repositories/SurveyRepo";
+import { supabase } from "@/shared/utils/supabaseClient";
 
 export const supabaseSurveyRepo: SurveyRepo = {
   async createTemplate(template): Promise<string> {
@@ -15,18 +21,18 @@ export const supabaseSurveyRepo: SurveyRepo = {
         },
       ])
       .select("id")
-      .single()
+      .single();
 
     if (templateError) {
-      console.error("Error creating survey template:", templateError)
-      throw new Error("Failed to create survey template")
+      console.error("Error creating survey template:", templateError);
+      throw new Error("Failed to create survey template");
     }
 
-    const templateId = templateData.id
+    const templateId = templateData.id;
 
     // Insert questions
     for (let i = 0; i < template.questions.length; i++) {
-      const question = template.questions[i]
+      const question = template.questions[i];
 
       const { data: questionData, error: questionError } = await supabase
         .from("questions")
@@ -39,14 +45,14 @@ export const supabaseSurveyRepo: SurveyRepo = {
           },
         ])
         .select("id")
-        .single()
+        .single();
 
       if (questionError) {
-        console.error("Error creating question:", questionError)
-        throw new Error("Failed to create question")
+        console.error("Error creating question:", questionError);
+        throw new Error("Failed to create question");
       }
 
-      const questionId = questionData.id
+      const questionId = questionData.id;
 
       // Insert options for this question
       const optionsToInsert = question.options.map((option, j) => ({
@@ -55,25 +61,31 @@ export const supabaseSurveyRepo: SurveyRepo = {
         value: option.value,
         icon: option.icon || null,
         order_index: j,
-      }))
+      }));
 
-      const { error: optionsError } = await supabase.from("options").insert(optionsToInsert)
+      const { error: optionsError } = await supabase
+        .from("options")
+        .insert(optionsToInsert);
 
       if (optionsError) {
-        console.error("Error creating options:", optionsError)
-        throw new Error("Failed to create options")
+        console.error("Error creating options:", optionsError);
+        throw new Error("Failed to create options");
       }
     }
 
-    return templateId
+    return templateId;
   },
 
   async getTemplateById(templateId): Promise<SurveyTemplate | null> {
-    const { data, error } = await supabase.from("survey_templates").select("*").eq("id", templateId).single()
+    const { data, error } = await supabase
+      .from("survey_templates")
+      .select("*")
+      .eq("id", templateId)
+      .single();
 
     if (error) {
-      console.error("Error fetching survey template:", error)
-      return null
+      console.error("Error fetching survey template:", error);
+      return null;
     }
 
     return {
@@ -82,26 +94,26 @@ export const supabaseSurveyRepo: SurveyRepo = {
       description: data.description,
       aiGenerated: data.ai_generated,
       createdAt: new Date(data.created_at),
-    }
+    };
   },
 
   async getTemplateWithQuestions(templateId): Promise<SurveyTemplate | null> {
     // Get the template
-    const template = await this.getTemplateById(templateId)
-    if (!template) return null
+    const template = await this.getTemplateById(templateId);
+    if (!template) return null;
 
     // Get the questions
-    const questions = await this.getQuestionsByTemplateId(templateId)
+    const questions = await this.getQuestionsByTemplateId(templateId);
 
     // Get options for each question
     for (const question of questions) {
-      question.options = await this.getOptionsByQuestionId(question.id)
+      question.options = await this.getOptionsByQuestionId(question.id);
     }
 
     return {
       ...template,
       questions,
-    }
+    };
   },
 
   async getQuestionsByTemplateId(templateId): Promise<Question[]> {
@@ -109,11 +121,11 @@ export const supabaseSurveyRepo: SurveyRepo = {
       .from("questions")
       .select("*")
       .eq("survey_template_id", templateId)
-      .order("order_index")
+      .order("order_index");
 
     if (error) {
-      console.error("Error fetching questions:", error)
-      return []
+      console.error("Error fetching questions:", error);
+      return [];
     }
 
     return data.map((item) => ({
@@ -123,7 +135,7 @@ export const supabaseSurveyRepo: SurveyRepo = {
       weight: item.weight,
       orderIndex: item.order_index,
       createdAt: new Date(item.created_at),
-    }))
+    }));
   },
 
   async getOptionsByQuestionId(questionId): Promise<Option[]> {
@@ -131,11 +143,11 @@ export const supabaseSurveyRepo: SurveyRepo = {
       .from("options")
       .select("*")
       .eq("question_id", questionId)
-      .order("order_index")
+      .order("order_index");
 
     if (error) {
-      console.error("Error fetching options:", error)
-      return []
+      console.error("Error fetching options:", error);
+      return [];
     }
 
     return data.map((item) => ({
@@ -146,7 +158,7 @@ export const supabaseSurveyRepo: SurveyRepo = {
       icon: item.icon,
       orderIndex: item.order_index,
       createdAt: new Date(item.created_at),
-    }))
+    }));
   },
 
   async createUserSurvey(userId, templateId): Promise<string> {
@@ -160,22 +172,26 @@ export const supabaseSurveyRepo: SurveyRepo = {
         },
       ])
       .select("id")
-      .single()
+      .single();
 
     if (error) {
-      console.error("Error creating user survey:", error)
-      throw new Error("Failed to create user survey")
+      console.error("Error creating user survey:", error);
+      throw new Error("Failed to create user survey");
     }
 
-    return data.id
+    return data.id;
   },
 
   async getUserSurveyById(surveyId): Promise<UserSurvey | null> {
-    const { data, error } = await supabase.from("user_surveys").select("*").eq("id", surveyId).single()
+    const { data, error } = await supabase
+      .from("user_surveys")
+      .select("*")
+      .eq("id", surveyId)
+      .single();
 
     if (error) {
-      console.error("Error fetching user survey:", error)
-      return null
+      console.error("Error fetching user survey:", error);
+      return null;
     }
 
     return {
@@ -185,7 +201,7 @@ export const supabaseSurveyRepo: SurveyRepo = {
       completed: data.completed,
       createdAt: new Date(data.created_at),
       completedAt: data.completed_at ? new Date(data.completed_at) : null,
-    }
+    };
   },
 
   async saveUserResponses(userSurveyId, responses): Promise<void> {
@@ -193,13 +209,15 @@ export const supabaseSurveyRepo: SurveyRepo = {
       user_survey_id: userSurveyId,
       question_id: response.questionId,
       option_id: response.optionId,
-    }))
+    }));
 
-    const { error } = await supabase.from("user_responses").insert(responsesToInsert)
+    const { error } = await supabase
+      .from("user_responses")
+      .insert(responsesToInsert);
 
     if (error) {
-      console.error("Error saving user responses:", error)
-      throw new Error("Failed to save user responses")
+      console.error("Error saving user responses:", error);
+      throw new Error("Failed to save user responses");
     }
   },
 
@@ -210,20 +228,23 @@ export const supabaseSurveyRepo: SurveyRepo = {
         completed: true,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", userSurveyId)
+      .eq("id", userSurveyId);
 
     if (error) {
-      console.error("Error completing user survey:", error)
-      throw new Error("Failed to complete user survey")
+      console.error("Error completing user survey:", error);
+      throw new Error("Failed to complete user survey");
     }
   },
 
   async getUserResponses(userSurveyId): Promise<UserResponse[]> {
-    const { data, error } = await supabase.from("user_responses").select("*").eq("user_survey_id", userSurveyId)
+    const { data, error } = await supabase
+      .from("user_responses")
+      .select("*")
+      .eq("user_survey_id", userSurveyId);
 
     if (error) {
-      console.error("Error fetching user responses:", error)
-      return []
+      console.error("Error fetching user responses:", error);
+      return [];
     }
 
     return data.map((item) => ({
@@ -232,6 +253,6 @@ export const supabaseSurveyRepo: SurveyRepo = {
       questionId: item.question_id,
       optionId: item.option_id,
       createdAt: new Date(item.created_at),
-    }))
+    }));
   },
-}
+};

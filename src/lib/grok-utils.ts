@@ -19,7 +19,7 @@ const supabaseServer = createClient<Database>(supabaseUrl, supabaseServiceKey, {
 });
 
 // Grok AI API 키
-const grokApiKey = process.env.GROK_API_KEY;
+const grokApiKey = process.env.XAI_API_KEY;
 
 if (!grokApiKey) {
   console.warn("Missing Grok API key. AI features will not work correctly.");

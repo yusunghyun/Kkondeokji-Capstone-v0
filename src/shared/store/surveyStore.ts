@@ -1,45 +1,47 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import type { SurveyTemplate } from "@/shared/types/domain"
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { SurveyTemplate } from "@/shared/types/domain";
 import {
   generatePersonalizedSurvey,
   getSurveyWithQuestions,
   startUserSurvey,
   saveUserResponses,
   completeSurvey,
-} from "@/core/services/SurveyService"
+} from "@/core/services/SurveyService";
 
 interface SurveyState {
-  userId: string | null
-  surveyTemplate: SurveyTemplate | null
-  userSurveyId: string | null
-  currentQuestionIndex: number
-  responses: Array<{ questionId: string; optionId: string }>
-  isLoading: boolean
-  error: string | null
+  userId: string | null;
+  surveyTemplate: SurveyTemplate | null;
+  userSurveyId: string | null;
+  currentQuestionIndex: number;
+  responses: Array<{ questionId: string; optionId: string }>;
+  isLoading: boolean;
+  error: string | null;
 
   // Actions
   generateSurvey: (userInfo: {
-    name?: string
-    age?: number
-    occupation?: string
-    otherUserId?: string
-  }) => Promise<string>
+    name?: string;
+    age?: number;
+    occupation?: string;
+    otherUserId?: string;
+  }) => Promise<string>;
 
-  loadSurvey: (templateId: string) => Promise<void>
+  loadSurvey: (templateId: string) => Promise<void>;
 
-  startSurvey: (userId: string, templateId: string) => Promise<string>
+  startSurvey: (userId: string, templateId: string) => Promise<string>;
 
-  answerQuestion: (questionId: string, optionId: string) => void
+  answerQuestion: (questionId: string, optionId: string) => void;
 
-  nextQuestion: () => void
+  nextQuestion: () => void;
 
-  prevQuestion: () => void
+  prevQuestion: () => void;
 
-  submitSurvey: () => Promise<void>
+  submitSurvey: () => Promise<void>;
 
-  reset: () => void
+  reset: () => void;
 }
+
+const isMock = process.env.NEXT_PUBLIC_USE_MOCK_SURVEY == "true";
 
 export const useSurveyStore = create<SurveyState>()(
   persist(
@@ -53,109 +55,122 @@ export const useSurveyStore = create<SurveyState>()(
       error: null,
 
       generateSurvey: async (userInfo) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null });
         try {
-          const templateId = await generatePersonalizedSurvey(userInfo)
-          await get().loadSurvey(templateId)
-          return templateId
+          const templateId = await generatePersonalizedSurvey(userInfo);
+          await get().loadSurvey(templateId);
+          return templateId;
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to generate survey",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to generate survey",
             isLoading: false,
-          })
-          throw error
+          });
+          throw error;
         }
       },
 
       loadSurvey: async (templateId) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null });
         try {
-          const template = await getSurveyWithQuestions(templateId)
+          const template = await getSurveyWithQuestions(templateId);
 
           if (!template) {
-            throw new Error("Survey template not found")
+            throw new Error("Survey template not found");
           }
 
-          set({ surveyTemplate: template, isLoading: false })
+          set({ surveyTemplate: template, isLoading: false });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to load survey",
+            error:
+              error instanceof Error ? error.message : "Failed to load survey",
             isLoading: false,
-          })
-          throw error
+          });
+          throw error;
         }
       },
 
       startSurvey: async (userId, templateId) => {
-        set({ isLoading: true, error: null, userId })
+        set({ isLoading: true, error: null, userId });
         try {
-          const userSurveyId = await startUserSurvey(userId, templateId)
-          set({ userSurveyId, isLoading: false })
-          return userSurveyId
+          const userSurveyId = await startUserSurvey(userId, templateId);
+          set({ userSurveyId, isLoading: false });
+          return userSurveyId;
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to start survey",
+            error:
+              error instanceof Error ? error.message : "Failed to start survey",
             isLoading: false,
-          })
-          throw error
+          });
+          throw error;
         }
       },
 
       answerQuestion: (questionId, optionId) => {
-        const { responses } = get()
+        const { responses } = get();
 
         // Check if we already have a response for this question
-        const existingIndex = responses.findIndex((r) => r.questionId === questionId)
+        const existingIndex = responses.findIndex(
+          (r) => r.questionId === questionId
+        );
 
         if (existingIndex >= 0) {
           // Update existing response
-          const newResponses = [...responses]
-          newResponses[existingIndex] = { questionId, optionId }
-          set({ responses: newResponses })
+          const newResponses = [...responses];
+          newResponses[existingIndex] = { questionId, optionId };
+          set({ responses: newResponses });
         } else {
           // Add new response
-          set({ responses: [...responses, { questionId, optionId }] })
+          set({ responses: [...responses, { questionId, optionId }] });
         }
       },
 
       nextQuestion: () => {
-        const { currentQuestionIndex, surveyTemplate } = get()
+        const { currentQuestionIndex, surveyTemplate } = get();
 
-        if (surveyTemplate?.questions && currentQuestionIndex < surveyTemplate.questions.length - 1) {
-          set({ currentQuestionIndex: currentQuestionIndex + 1 })
+        if (
+          surveyTemplate?.questions &&
+          currentQuestionIndex < surveyTemplate.questions.length - 1
+        ) {
+          set({ currentQuestionIndex: currentQuestionIndex + 1 });
         }
       },
 
       prevQuestion: () => {
-        const { currentQuestionIndex } = get()
+        const { currentQuestionIndex } = get();
 
         if (currentQuestionIndex > 0) {
-          set({ currentQuestionIndex: currentQuestionIndex - 1 })
+          set({ currentQuestionIndex: currentQuestionIndex - 1 });
         }
       },
 
       submitSurvey: async () => {
-        const { userSurveyId, responses } = get()
-        set({ isLoading: true, error: null })
+        const { userSurveyId, responses } = get();
+        set({ isLoading: true, error: null });
 
         try {
           if (!userSurveyId) {
-            throw new Error("No active survey")
+            throw new Error("No active survey");
           }
 
           // Save responses
-          await saveUserResponses(userSurveyId, responses)
+          await saveUserResponses(userSurveyId, responses);
 
           // Mark survey as completed
-          await completeSurvey(userSurveyId)
+          await completeSurvey(userSurveyId);
 
-          set({ isLoading: false })
+          set({ isLoading: false });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to submit survey",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to submit survey",
             isLoading: false,
-          })
-          throw error
+          });
+          throw error;
         }
       },
 
@@ -166,7 +181,7 @@ export const useSurveyStore = create<SurveyState>()(
           currentQuestionIndex: 0,
           responses: [],
           error: null,
-        })
+        });
       },
     }),
     {
@@ -176,6 +191,6 @@ export const useSurveyStore = create<SurveyState>()(
         userSurveyId: state.userSurveyId,
         responses: state.responses,
       }),
-    },
-  ),
-)
+    }
+  )
+);
