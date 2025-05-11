@@ -27,32 +27,32 @@ export default function ProfilePage() {
     fetchProfile,
   } = useUserStore();
   const { userQRCode, generateQRCode } = useQRCodeStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); //TODO 임시 false
 
-  useEffect(() => {
-    const initProfile = async () => {
-      if (!currentUser) {
-        router.push("/onboarding");
-        return;
-      }
+  // useEffect(() => {
+  //   const initProfile = async () => {
+  //     if (!currentUser) {
+  //       router.push("/onboarding");
+  //       return;
+  //     }
 
-      try {
-        // Fetch user profile
-        await fetchProfile(currentUser.id);
+  //     try {
+  //       // Fetch user profile
+  //       await fetchProfile(currentUser.id);
 
-        // Generate QR code if not already generated
-        if (!userQRCode) {
-          await generateQRCode(currentUser.id);
-        }
-      } catch (error) {
-        console.error("Error initializing profile:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  //       // Generate QR code if not already generated
+  //       if (!userQRCode) {
+  //         await generateQRCode(currentUser.id);
+  //       }
+  //     } catch (error) {
+  //       console.error("Error initializing profile:", error);
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
 
-    initProfile();
-  }, [currentUser, fetchProfile, generateQRCode, router, userQRCode]);
+  //   initProfile();
+  // }, [currentUser, fetchProfile, generateQRCode, router, userQRCode]);
 
   if (isLoading || !profile) {
     return <LoadingScreen />;
