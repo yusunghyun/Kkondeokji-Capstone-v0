@@ -1,20 +1,30 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import type { User, UserProfile } from "@/shared/types/domain"
-import { getUserRepo } from "@/core/infra/RepositoryFactory"
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { User, UserProfile } from "@/shared/types/domain";
+import { getUserRepo } from "@/core/infra/RepositoryFactory";
 
 interface UserState {
-  currentUser: User | null
-  profile: UserProfile | null
-  isLoading: boolean
-  error: string | null
+  currentUser: User | null;
+  profile: UserProfile | null;
+  isLoading: boolean;
+  error: string | null;
 
   // Actions
-  createUser: (userData: { name?: string; age?: number; occupation?: string }) => Promise<string>
-  fetchUser: (userId: string) => Promise<void>
-  fetchProfile: (userId: string) => Promise<void>
-  updateUser: (userData: { name?: string; age?: number; occupation?: string }) => Promise<void>
-  logout: () => void
+  createUser: (userData: {
+    id?: string;
+    name?: string;
+    age?: number;
+    occupation?: string;
+    email?: string;
+  }) => Promise<string>;
+  fetchUser: (userId: string) => Promise<void>;
+  fetchProfile: (userId: string) => Promise<void>;
+  updateUser: (userData: {
+    name?: string;
+    age?: number;
+    occupation?: string;
+  }) => Promise<void>;
+  logout: () => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -26,89 +36,95 @@ export const useUserStore = create<UserState>()(
       error: null,
 
       createUser: async (userData) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null });
         try {
-          const userId = await getUserRepo().create(userData)
-          const user = await getUserRepo().getById(userId)
+          const userId = await getUserRepo().create(userData);
+          const user = await getUserRepo().getById(userId);
 
           if (user) {
-            set({ currentUser: user, isLoading: false })
+            set({ currentUser: user, isLoading: false });
           } else {
-            throw new Error("Failed to fetch created user")
+            throw new Error("Failed to fetch created user");
           }
 
-          return userId
+          return userId;
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to create user",
+            error:
+              error instanceof Error ? error.message : "Failed to create user",
             isLoading: false,
-          })
-          throw error
+          });
+          throw error;
         }
       },
 
       fetchUser: async (userId) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null });
         try {
-          const user = await getUserRepo().getById(userId)
+          const user = await getUserRepo().getById(userId);
 
           if (user) {
-            set({ currentUser: user, isLoading: false })
+            set({ currentUser: user, isLoading: false });
           } else {
-            throw new Error("User not found")
+            throw new Error("User not found");
           }
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to fetch user",
+            error:
+              error instanceof Error ? error.message : "Failed to fetch user",
             isLoading: false,
-          })
+          });
         }
       },
 
       fetchProfile: async (userId) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null });
         try {
-          const profile = await getUserRepo().getProfile(userId)
+          const profile = await getUserRepo().getProfile(userId);
 
           if (profile) {
-            set({ profile, isLoading: false })
+            set({ profile, isLoading: false });
           } else {
-            throw new Error("Profile not found")
+            throw new Error("Profile not found");
           }
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to fetch profile",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch profile",
             isLoading: false,
-          })
+          });
         }
       },
 
       updateUser: async (userData) => {
-        set({ isLoading: true, error: null })
+        set({ isLoading: true, error: null });
         try {
-          const { currentUser } = get()
+          const { currentUser } = get();
 
           if (!currentUser) {
-            throw new Error("No user logged in")
+            throw new Error("No user logged in");
           }
 
-          await getUserRepo().update(currentUser.id, userData)
+          await getUserRepo().update(currentUser.id, userData);
 
           // Refresh user data
-          await get().fetchUser(currentUser.id)
+          await get().fetchUser(currentUser.id);
 
-          set({ isLoading: false })
+          set({ isLoading: false });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to update user",
+            error:
+              error instanceof Error ? error.message : "Failed to update user",
             isLoading: false,
-          })
-          throw error
+          });
+          throw error;
         }
       },
 
       logout: () => {
-        set({ currentUser: null, profile: null, error: null })
+        set({ currentUser: null, profile: null, error: null });
       },
     }),
     {
@@ -116,6 +132,6 @@ export const useUserStore = create<UserState>()(
       partialize: (state) => ({
         currentUser: state.currentUser,
       }),
-    },
-  ),
-)
+    }
+  )
+);
