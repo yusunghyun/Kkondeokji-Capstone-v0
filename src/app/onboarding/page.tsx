@@ -28,6 +28,7 @@ export default function OnboardingPage() {
 
   // 인증된 사용자인 경우 프로필 입력 단계로 이동
   useEffect(() => {
+    console.log("user", user);
     if (!loading && user) {
       setStep("profile");
     }
@@ -36,32 +37,32 @@ export default function OnboardingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
+    // setError(null);
 
     try {
-      // 사용자가 이미 로그인되어 있는지 확인
-      if (!user) {
-        throw new Error("로그인이 필요합니다");
-      }
+      // // 사용자가 이미 로그인되어 있는지 확인
+      // if (!user) {
+      //   throw new Error("로그인이 필요합니다");
+      // }
 
-      // Create user with authenticated user ID
-      const userId = await createUser({
-        id: user.id,
-        name: name || undefined,
-        age: age ? Number.parseInt(age) : undefined,
-        occupation: occupation || undefined,
-        email: user.email,
-      });
+      // // Create user with authenticated user ID
+      // const userId = await createUser({
+      //   id: user.id,
+      //   name: name || undefined,
+      //   age: age ? Number.parseInt(age) : undefined,
+      //   occupation: occupation || undefined,
+      //   email: user.email,
+      // });
 
-      // Generate personalized survey
-      const templateId = await generateSurvey({
-        name: name || undefined,
-        age: age ? Number.parseInt(age) : undefined,
-        occupation: occupation || undefined,
-      });
+      // // Generate personalized survey
+      // const templateId = await generateSurvey({
+      //   name: name || undefined,
+      //   age: age ? Number.parseInt(age) : undefined,
+      //   occupation: occupation || undefined,
+      // });
 
-      // Start survey
-      await startSurvey(userId, templateId);
+      // // Start survey
+      // await startSurvey(userId, templateId);
 
       // Navigate to survey
       router.push("/survey");
