@@ -41,26 +41,29 @@ export default function OnboardingPage() {
 
     try {
       // 사용자가 이미 로그인되어 있는지 확인
-      if (!user && currentUser === null) {
+      if (!user) {
         throw new Error("로그인이 필요합니다");
       }
 
       // Create user with authenticated user ID
-      await updateUser({
-        name: name || undefined,
-        age: age ? Number.parseInt(age) : undefined,
-        occupation: occupation || undefined,
-      });
+      await updateUser(
+        {
+          name: name || undefined,
+          age: age ? Number.parseInt(age) : undefined,
+          occupation: occupation || undefined,
+        },
+        user?.id || ""
+      );
 
       // Generate personalized survey
-      const templateId = await generateSurvey({
-        name: name || undefined,
-        age: age ? Number.parseInt(age) : undefined,
-        occupation: occupation || undefined,
-      });
+      // const templateId = await generateSurvey({
+      //   name: name || undefined,
+      //   age: age ? Number.parseInt(age) : undefined,
+      //   occupation: occupation || undefined,
+      // });
 
-      // Start survey
-      await startSurvey(currentUser?.id || "", templateId);
+      // // Start survey
+      // await startSurvey(currentUser?.id || "", templateId);
 
       // Navigate to survey
       router.push("/survey");

@@ -1,6 +1,6 @@
-import type { User, UserProfile } from "@/shared/types/domain"
-import type { UserRepo } from "@/core/repositories/UserRepo"
-import { supabase } from "@/shared/utils/supabaseClient"
+import type { User, UserProfile } from "@/shared/types/domain";
+import type { UserRepo } from "@/core/repositories/UserRepo";
+import { supabase } from "@/shared/utils/supabaseClient";
 
 export const supabaseUserRepo: UserRepo = {
   async create(userData): Promise<string> {
@@ -14,22 +14,26 @@ export const supabaseUserRepo: UserRepo = {
         },
       ])
       .select("id")
-      .single()
+      .single();
 
     if (error) {
-      console.error("Error creating user:", error)
-      throw new Error("Failed to create user")
+      console.error("Error creating user:", error);
+      throw new Error("Failed to create user");
     }
 
-    return data.id
+    return data.id;
   },
 
   async getById(userId): Promise<User | null> {
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
     if (error) {
-      console.error("Error fetching user:", error)
-      return null
+      console.error("Error fetching user:", error);
+      return null;
     }
 
     return {
@@ -39,16 +43,20 @@ export const supabaseUserRepo: UserRepo = {
       occupation: data.occupation,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
-    }
+    };
   },
 
   async getProfile(userId): Promise<UserProfile | null> {
     // Get user data
-    const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
     if (userError) {
-      console.error("Error fetching user profile:", userError)
-      return null
+      console.error("Error fetching user profile:", userError);
+      return null;
     }
 
     // Get user's completed surveys
@@ -56,11 +64,11 @@ export const supabaseUserRepo: UserRepo = {
       .from("user_surveys")
       .select("id")
       .eq("user_id", userId)
-      .eq("completed", true)
+      .eq("completed", true);
 
     if (surveysError) {
-      console.error("Error fetching user surveys:", surveysError)
-      return null
+      console.error("Error fetching user surveys:", surveysError);
+      return null;
     }
 
     // If user has no completed surveys, return profile without interests
@@ -72,29 +80,35 @@ export const supabaseUserRepo: UserRepo = {
         occupation: userData.occupation,
         interests: [],
         createdAt: new Date(userData.created_at),
-      }
+      };
     }
 
     // Get user's responses to extract interests
-    const surveyIds = userSurveys.map((s) => s.id)
+    const surveyIds = userSurveys.map((s) => s.id);
     const { data: responses, error: responsesError } = await supabase
       .from("user_responses")
-      .select(`
+      .select(
+        `
         id,
         option_id,
         options:option_id (
           value
         )
-      `)
-      .in("user_survey_id", surveyIds)
+      `
+      )
+      .in("user_survey_id", surveyIds);
 
     if (responsesError) {
-      console.error("Error fetching user responses:", responsesError)
-      return null
+      console.error("Error fetching user responses:", responsesError);
+      return null;
     }
 
     // Extract unique interest tags
-    const interests = Array.from(new Set(responses.map((r) => r.options?.value).filter(Boolean) as string[]))
+    const interests = Array.from(
+      new Set(
+        responses.map((r) => r.options?.value).filter(Boolean) as string[]
+      )
+    );
 
     return {
       id: userData.id,
@@ -103,11 +117,11 @@ export const supabaseUserRepo: UserRepo = {
       occupation: userData.occupation,
       interests,
       createdAt: new Date(userData.created_at),
-    }
+    };
   },
 
   async update(userId, userData): Promise<void> {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("users")
       .update({
         name: userData.name,
@@ -116,10 +130,12 @@ export const supabaseUserRepo: UserRepo = {
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId)
-
+      .select()
+      .single();
+    console.log("supabase update", data, error);
     if (error) {
-      console.error("Error updating user:", error)
-      throw new Error("Failed to update user")
+      console.error("Error updating user:", error);
+      throw new Error("Failed to update user");
     }
   },
-}
+};

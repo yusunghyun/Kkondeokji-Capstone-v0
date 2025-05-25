@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User, UserProfile } from "@/shared/types/domain";
 import { getUserRepo } from "@/core/infra/RepositoryFactory";
+import { getCurrentUser } from "@/lib/auth";
 
 interface UserState {
   currentUser: User | null;
@@ -17,13 +18,16 @@ interface UserState {
     occupation?: string;
     email?: string;
   }) => Promise<string>;
-  fetchUser: (userId: string) => Promise<void>;
+  fetchUser: () => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
-  updateUser: (userData: {
-    name?: string;
-    age?: number;
-    occupation?: string;
-  }) => Promise<void>;
+  updateUser: (
+    userData: {
+      name?: string;
+      age?: number;
+      occupation?: string;
+    },
+    userId: string
+  ) => Promise<void>;
   logout: () => void;
 }
 
@@ -58,13 +62,16 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      fetchUser: async (userId) => {
+      fetchUser: async () => {
         set({ isLoading: true, error: null });
         try {
-          const user = await getUserRepo().getById(userId);
+          const user = await getCurrentUser();
+          const userData = await getUserRepo().getById(user?.id || "");
 
+          console.log("fetchUser userData", userData);
+          console.log("fetchUser user", user);
           if (user) {
-            set({ currentUser: user, isLoading: false });
+            set({ currentUser: userData, isLoading: false });
           } else {
             throw new Error("User not found");
           }
@@ -98,19 +105,26 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      updateUser: async (userData) => {
+      updateUser: async (userData, userId) => {
         set({ isLoading: true, error: null });
         try {
           const { currentUser } = get();
+
+          console.log("currentUser", currentUser);
 
           if (!currentUser) {
             throw new Error("No user logged in");
           }
 
-          await getUserRepo().update(currentUser.id, userData);
+          console.log("updateUser userData", userData);
+          console.log("updateUser currentUser", currentUser);
+
+          await getUserRepo().update(userId, userData);
+
+          set({ currentUser: { ...currentUser, ...userData } });
 
           // Refresh user data
-          await get().fetchUser(currentUser.id);
+          // await get().fetchUser(currentUser.id);
 
           set({ isLoading: false });
         } catch (error) {
