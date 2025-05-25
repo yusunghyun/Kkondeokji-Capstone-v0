@@ -16,7 +16,7 @@ import { RegisterForm } from "@/components/auth/RegisterForm";
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { createUser } = useUserStore();
+  const { updateUser, currentUser } = useUserStore();
   const { generateSurvey, startSurvey } = useSurveyStore();
 
   const [name, setName] = useState("");
@@ -41,17 +41,15 @@ export default function OnboardingPage() {
 
     try {
       // 사용자가 이미 로그인되어 있는지 확인
-      if (!user) {
+      if (!user && currentUser === null) {
         throw new Error("로그인이 필요합니다");
       }
 
       // Create user with authenticated user ID
-      const userId = await createUser({
-        id: user.id,
+      await updateUser({
         name: name || undefined,
         age: age ? Number.parseInt(age) : undefined,
         occupation: occupation || undefined,
-        email: user.email,
       });
 
       // Generate personalized survey
@@ -62,7 +60,7 @@ export default function OnboardingPage() {
       });
 
       // Start survey
-      await startSurvey(userId, templateId);
+      await startSurvey(currentUser?.id || "", templateId);
 
       // Navigate to survey
       router.push("/survey");

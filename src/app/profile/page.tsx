@@ -14,18 +14,7 @@ import { LoadingScreen } from "@/features/survey/components/loading-screen";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const profile = {
-    id: "1",
-    name: "홍길동",
-    age: 20,
-    occupation: "개발자",
-    interests: ["영화", "음악", "책"],
-  };
-  const {
-    currentUser,
-    // profile,
-    fetchProfile,
-  } = useUserStore();
+  const { currentUser, profile, fetchProfile } = useUserStore();
   const { userQRCode, generateQRCode } = useQRCodeStore();
   const [isLoading, setIsLoading] = useState(true);
 
