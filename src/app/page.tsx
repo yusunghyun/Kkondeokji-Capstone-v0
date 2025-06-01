@@ -7,13 +7,19 @@ import { QrCode, LogIn, LogOut } from "lucide-react";
 import { useUserStore } from "@/shared/store/userStore";
 import { useRouter } from "next/navigation";
 import { useSurveyStore } from "@/shared/store/surveyStore";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 export default function HomePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { profile, fetchProfile } = useUserStore();
   const { generateSurvey, startSurvey } = useSurveyStore();
+  const { responses, reset } = useSurveyStore();
+
+  //TODO 리셋용
+  useEffect(() => {
+    reset();
+  }, [reset]);
 
   const handleStartSurvey = useCallback(async () => {
     console.log("handleStartSurvey profile", profile);

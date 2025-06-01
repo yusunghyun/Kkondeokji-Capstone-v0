@@ -29,6 +29,12 @@ export default function SurveyPage() {
   const templateId = searchParams.get("templateId");
 
   useEffect(() => {
+    console.log("surveyTemplate", surveyTemplate);
+    console.log("responses", responses);
+    console.log("currentQuestionIndex", currentQuestionIndex);
+  }, [surveyTemplate, responses, currentQuestionIndex]);
+
+  useEffect(() => {
     if (templateId) {
       loadSurvey(templateId);
     } else {

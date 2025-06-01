@@ -117,7 +117,9 @@ export const useSurveyStore = create<SurveyState>()(
       },
 
       answerQuestion: (questionId, optionId) => {
+        console.log("answerQuestion", questionId, optionId);
         const { responses } = get();
+        console.log("get responses", responses);
 
         // Check if we already have a response for this question
         const existingIndex = responses.findIndex(
@@ -156,6 +158,7 @@ export const useSurveyStore = create<SurveyState>()(
 
       submitSurvey: async () => {
         const { userSurveyId, responses } = get();
+        console.log("submitSurvey", userSurveyId, responses);
         set({ isLoading: true, error: null });
 
         try {
