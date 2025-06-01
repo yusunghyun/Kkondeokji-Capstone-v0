@@ -19,7 +19,7 @@ interface UserState {
     email?: string;
   }) => Promise<string>;
   fetchUser: () => Promise<void>;
-  fetchProfile: (userId: string) => Promise<void>;
+  fetchProfile: (userId: string) => Promise<UserProfile | null>;
   updateUser: (
     userData: {
       name?: string;
@@ -91,6 +91,7 @@ export const useUserStore = create<UserState>()(
 
           if (profile) {
             set({ profile, isLoading: false });
+            return profile;
           } else {
             throw new Error("Profile not found");
           }

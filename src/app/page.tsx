@@ -12,22 +12,47 @@ import { useCallback } from "react";
 export default function HomePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { profile } = useUserStore();
+  const { profile, fetchProfile } = useUserStore();
   const { generateSurvey, startSurvey } = useSurveyStore();
 
   const handleStartSurvey = useCallback(async () => {
     console.log("handleStartSurvey profile", profile);
-    if (profile?.name && profile?.age && profile?.occupation) {
-      const templateId = await generateSurvey({
-        name: profile.name,
-        age: profile.age,
-        occupation: profile?.occupation,
-      });
-      const userSurveyId = await startSurvey(user?.id || "", templateId);
-      router.push(`/survey?templateId=${templateId}`);
-    } else {
+    if (!user) {
       router.push("/onboarding");
+      return;
     }
+
+    if (!profile?.name || !profile?.age || !profile?.occupation) {
+      const fetchedProfile = await fetchProfile(user.id);
+
+      if (
+        !fetchedProfile?.name ||
+        !fetchedProfile?.age ||
+        !fetchedProfile?.occupation
+      ) {
+        router.push("/onboarding");
+        return;
+      }
+
+      const templateId = await generateSurvey({
+        name: fetchedProfile.name,
+        age: fetchedProfile.age,
+        occupation: fetchedProfile.occupation,
+      });
+
+      await startSurvey(user.id, templateId);
+      router.push(`/survey?templateId=${templateId}`);
+      return;
+    }
+
+    const templateId = await generateSurvey({
+      name: profile.name,
+      age: profile.age,
+      occupation: profile.occupation,
+    });
+
+    await startSurvey(user.id, templateId);
+    router.push(`/survey?templateId=${templateId}`);
   }, [profile, generateSurvey, startSurvey, user, router]);
 
   return (

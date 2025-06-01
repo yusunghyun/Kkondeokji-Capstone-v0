@@ -48,9 +48,7 @@ export default function SurveyPage() {
             오류가 발생했습니다
           </h2>
           <p className="mb-4">{error}</p>
-          <Button onClick={() => router.push("/onboarding")}>
-            다시 시작하기
-          </Button>
+          <Button onClick={() => router.push("/")}>다시 시작하기</Button>
         </Card>
       </div>
     );
