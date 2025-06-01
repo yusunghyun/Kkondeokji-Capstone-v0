@@ -31,6 +31,8 @@ export default function OnboardingPage() {
     console.log("user", user);
     if (!loading && user) {
       setStep("profile");
+    } else {
+      router.push("/auth/login");
     }
   }, [user, loading]);
 

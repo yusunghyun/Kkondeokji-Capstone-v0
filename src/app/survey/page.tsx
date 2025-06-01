@@ -51,10 +51,11 @@ function SurveyContent() {
       loadSurvey(firstTemplateId);
       return;
     }
-    if (currentQuestionIndex > 0 && currentQuestionIndex === 5) {
+    if (currentQuestionIndex > 0 && currentQuestionIndex < 6) {
       handleLoadSurvey();
       return;
     }
+    console.log("??????????????", currentQuestionIndex);
     router.push("/onboarding");
   }, [
     firstTemplateId,

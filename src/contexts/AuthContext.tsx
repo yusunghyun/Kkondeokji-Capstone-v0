@@ -39,11 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        console.log("fetchUser");
         const user = await getCurrentUser();
         setUser(user);
       } catch (error) {
         setUser(null);
       } finally {
+        console.log("fetchUser finally");
         setLoading(false);
       }
     };
