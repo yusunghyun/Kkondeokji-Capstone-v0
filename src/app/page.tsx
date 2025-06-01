@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/shared/ui/button";
-import { QrCode, LogIn, LogOut } from "lucide-react";
+import { QrCode, LogIn, LogOut, User } from "lucide-react";
 import { useUserStore } from "@/shared/store/userStore";
 import { useRouter } from "next/navigation";
 import { useSurveyStore } from "@/shared/store/surveyStore";
@@ -12,14 +12,18 @@ import { useCallback, useEffect } from "react";
 export default function HomePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { profile, fetchProfile } = useUserStore();
+  const { profile, fetchProfile, currentUser } = useUserStore();
   const { generateSurvey, startSurvey } = useSurveyStore();
   const { responses, reset } = useSurveyStore();
 
-  //TODO 리셋용
+  // //TODO 리셋용
+  // useEffect(() => {
+  //   reset();
+  // }, [reset]);
+
   useEffect(() => {
-    reset();
-  }, [reset]);
+    console.log("currentUser", currentUser);
+  }, [currentUser]);
 
   const handleStartSurvey = useCallback(async () => {
     console.log("handleStartSurvey profile", profile);
@@ -66,14 +70,25 @@ export default function HomePage() {
       <nav className="py-4 px-6 flex justify-between items-center">
         <div className="text-xl font-bold text-primary-500">껀덕지</div>
         {user ? (
-          <Button
-            variant="ghost"
-            className="text-gray-600 hover:text-primary-500"
-            onClick={signOut}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            로그아웃
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              className="text-gray-600 hover:text-primary-500"
+              onClick={() => router.push("/profile")}
+              disabled={!currentUser}
+            >
+              <User className="mr-2 h-4 w-4" />
+              프로필
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-gray-600 hover:text-primary-500"
+              onClick={signOut}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              로그아웃
+            </Button>
+          </div>
         ) : (
           <></>
         )}

@@ -56,6 +56,17 @@ export const supabaseUserRepo: UserRepo = {
 
     if (userError) {
       console.error("Error fetching user profile:", userError);
+      if (userError.code === "PGRST116") {
+        // 사용자 데이터가 없는 경우, 기본 프로필 반환
+        return {
+          id: userId,
+          name: null,
+          age: null,
+          occupation: null,
+          interests: [],
+          createdAt: new Date(),
+        };
+      }
       return null;
     }
 

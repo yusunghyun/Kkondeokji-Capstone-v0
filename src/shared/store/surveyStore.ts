@@ -174,6 +174,7 @@ export const useSurveyStore = create<SurveyState>()(
 
           // Mark survey as completed
           await completeSurvey(userSurveyId);
+          get().reset();
 
           set({ isLoading: false });
         } catch (error) {

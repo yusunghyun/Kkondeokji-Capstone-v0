@@ -51,7 +51,7 @@ export default function SurveyPage() {
       loadSurvey(firstTemplateId);
       return;
     }
-    if (currentQuestionIndex > 0 && currentQuestionIndex < 6) {
+    if (currentQuestionIndex > 0 && currentQuestionIndex === 5) {
       handleLoadSurvey();
       return;
     }
