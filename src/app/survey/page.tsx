@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -24,9 +24,10 @@ export default function SurveyPage() {
     prevQuestion,
     submitSurvey,
   } = useSurveyStore();
+  const { generateSurvey } = useSurveyStore();
 
   const searchParams = useSearchParams();
-  const templateId = searchParams.get("templateId");
+  const firstTemplateId = searchParams.get("templateId");
 
   useEffect(() => {
     console.log("surveyTemplate", surveyTemplate);
@@ -34,13 +35,34 @@ export default function SurveyPage() {
     console.log("currentQuestionIndex", currentQuestionIndex);
   }, [surveyTemplate, responses, currentQuestionIndex]);
 
+  // TODO 템플릿에 질문이 여러개 있지 않아서 임의로 템플릿ID 가지고 옴. 일단 5번까지는 이렇게 하자.
+  const handleLoadSurvey = useCallback(async () => {
+    const templateId = await generateSurvey({
+      name: undefined,
+      age: undefined,
+      occupation: undefined,
+    });
+    loadSurvey(templateId);
+  }, [generateSurvey, loadSurvey]);
+
+  // 초기 설문지 로딩
   useEffect(() => {
-    if (templateId) {
-      loadSurvey(templateId);
-    } else {
-      router.push("/onboarding");
+    if (firstTemplateId && currentQuestionIndex === 0) {
+      loadSurvey(firstTemplateId);
+      return;
     }
-  }, [templateId, loadSurvey, router]);
+    if (currentQuestionIndex > 0 && currentQuestionIndex < 6) {
+      handleLoadSurvey();
+      return;
+    }
+    router.push("/onboarding");
+  }, [
+    firstTemplateId,
+    loadSurvey,
+    router,
+    handleLoadSurvey,
+    currentQuestionIndex,
+  ]);
 
   if (isLoading || !surveyTemplate) {
     return <LoadingScreen />;
@@ -61,7 +83,9 @@ export default function SurveyPage() {
   }
 
   const questions = surveyTemplate.questions || [];
-  const currentQuestion = questions[currentQuestionIndex];
+  // TODO 템플릿에 질문이 여러개 있지 않아서 임의로 5번까지는 이렇게 하자.
+  // const currentQuestion = questions[currentQuestionIndex];
+  const currentQuestion = questions[0];
   const currentOptions = currentQuestion?.options || [];
 
   // Find if user has already answered this question
@@ -83,7 +107,8 @@ export default function SurveyPage() {
   };
 
   const handleNext = () => {
-    if (isLastQuestion) {
+    // if (isLastQuestion) {
+    if (currentQuestionIndex === 5) {
       handleSubmit();
     } else {
       nextQuestion();

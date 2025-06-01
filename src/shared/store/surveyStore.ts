@@ -89,6 +89,8 @@ export const useSurveyStore = create<SurveyState>()(
             throw new Error("Survey template not found");
           }
 
+          console.log("loadSurvey", template);
+
           set({ surveyTemplate: template, isLoading: false });
         } catch (error) {
           set({
@@ -140,10 +142,11 @@ export const useSurveyStore = create<SurveyState>()(
       nextQuestion: () => {
         const { currentQuestionIndex, surveyTemplate } = get();
 
-        if (
-          surveyTemplate?.questions &&
-          currentQuestionIndex < surveyTemplate.questions.length - 1
-        ) {
+        // TODO 템플릿에 질문이 여러개 있지 않아서 임의로 5번까지는 이렇게 하자.
+        // const questionCount = surveyTemplate?.questions?.length || 0;
+        const questionCount = 5;
+
+        if (currentQuestionIndex < questionCount) {
           set({ currentQuestionIndex: currentQuestionIndex + 1 });
         }
       },
