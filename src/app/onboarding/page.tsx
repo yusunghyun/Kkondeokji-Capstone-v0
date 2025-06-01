@@ -46,7 +46,7 @@ export default function OnboardingPage() {
       }
 
       // Create user with authenticated user ID
-      await updateUser(
+      const updatedUser = await updateUser(
         {
           name: name || undefined,
           age: age ? Number.parseInt(age) : undefined,
@@ -55,17 +55,18 @@ export default function OnboardingPage() {
         user?.id || ""
       );
 
+      // TODO: 임시로 고정된 templateId 사용
+      const templateId = "0868781a-f163-4854-b797-012c9371f4ec";
+
       // Generate personalized survey
       // const templateId = await generateSurvey({
       //   name: name || undefined,
       //   age: age ? Number.parseInt(age) : undefined,
       //   occupation: occupation || undefined,
       // });
+      // Start survey
+      await startSurvey(currentUser?.id || "", templateId);
 
-      // // Start survey
-      // await startSurvey(currentUser?.id || "", templateId);
-
-      // Navigate to survey
       router.push("/survey");
     } catch (err) {
       setError(

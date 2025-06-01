@@ -4,9 +4,23 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/shared/ui/button";
 import { QrCode, LogIn, LogOut } from "lucide-react";
+import { useUserStore } from "@/shared/store/userStore";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
+  const router = useRouter();
   const { user, signOut } = useAuth();
+  const { profile } = useUserStore();
+
+  const handleStartSurvey = async () => {
+    console.log("handleStartSurvey profile", profile);
+    const isOnboarded = profile?.name && profile?.age && profile?.occupation;
+    if (isOnboarded) {
+      router.push("/survey");
+    } else {
+      router.push("/onboarding");
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50">
@@ -45,11 +59,12 @@ export default function HomePage() {
                 시작해보세요.
               </p>
 
-              <Link href="/onboarding" className="w-full">
-                <Button className="w-full bg-primary-500 hover:bg-primary-600 text-white rounded-full py-6">
-                  30초 설문 시작하기
-                </Button>
-              </Link>
+              <Button
+                className="w-full bg-primary-500 hover:bg-primary-600 text-white rounded-full py-6"
+                onClick={handleStartSurvey}
+              >
+                30초 설문 시작하기
+              </Button>
 
               <div className="mt-4">
                 <Link

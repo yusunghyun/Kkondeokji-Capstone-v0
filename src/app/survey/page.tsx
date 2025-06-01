@@ -25,12 +25,12 @@ export default function SurveyPage() {
     submitSurvey,
   } = useSurveyStore();
 
-  useEffect(() => {
-    // If no survey template is loaded, redirect to onboarding
-    if (!surveyTemplate && !isLoading) {
-      router.push("/onboarding");
-    }
-  }, [surveyTemplate, isLoading, router]);
+  // useEffect(() => {
+  //   // If no survey template is loaded, redirect to onboarding
+  //   if (!surveyTemplate && !isLoading) {
+  //     router.push("/onboarding");
+  //   }
+  // }, [surveyTemplate, isLoading, router]);
 
   if (isLoading || !surveyTemplate) {
     return <LoadingScreen />;

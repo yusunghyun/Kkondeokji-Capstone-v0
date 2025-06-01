@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { AuthUser, getCurrentUser, signIn, signOut, signUp } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { useUserStore } from "@/shared/store/userStore";
 
 type AuthContextType = {
   user: AuthUser | null;
@@ -25,6 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { fetchProfile } = useUserStore();
+
+  useEffect(() => {
+    console.log("user", user);
+    if (user) {
+      console.log("fetchProfile", user.id);
+      fetchProfile(user.id || "");
+    }
+  }, [user, fetchProfile]);
 
   useEffect(() => {
     const fetchUser = async () => {
