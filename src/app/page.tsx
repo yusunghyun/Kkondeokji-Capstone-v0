@@ -6,17 +6,22 @@ import { Button } from "@/shared/ui/button";
 import { QrCode, LogIn, LogOut } from "lucide-react";
 import { useUserStore } from "@/shared/store/userStore";
 import { useRouter } from "next/navigation";
+import { useSurveyStore } from "@/shared/store/surveyStore";
 
 export default function HomePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { profile } = useUserStore();
+  const { startSurvey } = useSurveyStore();
 
   const handleStartSurvey = async () => {
     console.log("handleStartSurvey profile", profile);
     const isOnboarded = profile?.name && profile?.age && profile?.occupation;
     if (isOnboarded) {
-      router.push("/survey");
+      // TODO: 임시로 고정된 templateId 사용
+      const templateId = "0868781a-f163-4854-b797-012c9371f4ec";
+      const userSurveyId = await startSurvey(user?.id || "", templateId);
+      router.push(`/survey?templateId=${templateId}`);
     } else {
       router.push("/onboarding");
     }

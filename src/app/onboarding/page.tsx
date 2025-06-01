@@ -65,9 +65,9 @@ export default function OnboardingPage() {
       //   occupation: occupation || undefined,
       // });
       // Start survey
-      await startSurvey(currentUser?.id || "", templateId);
+      const userSurveyId = await startSurvey(currentUser?.id || "", templateId);
 
-      router.push("/survey");
+      router.push(`/survey?templateId=${templateId}`);
     } catch (err) {
       setError(
         err instanceof Error

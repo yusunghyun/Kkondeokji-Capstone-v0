@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Progress } from "@/shared/ui/progress";
@@ -25,12 +25,16 @@ export default function SurveyPage() {
     submitSurvey,
   } = useSurveyStore();
 
-  // useEffect(() => {
-  //   // If no survey template is loaded, redirect to onboarding
-  //   if (!surveyTemplate && !isLoading) {
-  //     router.push("/onboarding");
-  //   }
-  // }, [surveyTemplate, isLoading, router]);
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get("templateId");
+
+  useEffect(() => {
+    if (templateId) {
+      loadSurvey(templateId);
+    } else {
+      router.push("/onboarding");
+    }
+  }, [templateId, loadSurvey, router]);
 
   if (isLoading || !surveyTemplate) {
     return <LoadingScreen />;
