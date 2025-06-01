@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -10,7 +10,7 @@ import { useSurveyStore } from "@/shared/store/surveyStore";
 import { QuestionCard } from "@/features/survey/components/question-card";
 import { LoadingScreen } from "@/features/survey/components/loading-screen";
 
-export default function SurveyPage() {
+function SurveyContent() {
   const router = useRouter();
   const {
     surveyTemplate,
@@ -162,5 +162,13 @@ export default function SurveyPage() {
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
     </div>
+  );
+}
+
+export default function SurveyPage() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <SurveyContent />
+    </Suspense>
   );
 }
