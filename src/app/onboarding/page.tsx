@@ -55,15 +55,12 @@ export default function OnboardingPage() {
         user?.id || ""
       );
 
-      // TODO: 임시로 고정된 templateId 사용
-      const templateId = "0868781a-f163-4854-b797-012c9371f4ec";
-
       // Generate personalized survey
-      // const templateId = await generateSurvey({
-      //   name: name || undefined,
-      //   age: age ? Number.parseInt(age) : undefined,
-      //   occupation: occupation || undefined,
-      // });
+      const templateId = await generateSurvey({
+        name: name || undefined,
+        age: age ? Number.parseInt(age) : undefined,
+        occupation: occupation || undefined,
+      });
       // Start survey
       const userSurveyId = await startSurvey(currentUser?.id || "", templateId);
 

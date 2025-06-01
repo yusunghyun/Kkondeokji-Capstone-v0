@@ -1,36 +1,47 @@
-import type { SurveyTemplate, Question, Option, UserSurvey, UserResponse } from "@/shared/types/domain"
+import type {
+  SurveyTemplate,
+  Question,
+  Option,
+  UserSurvey,
+  UserResponse,
+} from "@/shared/types/domain";
 
 export interface SurveyRepo {
+  getTemplateIdList(): Promise<string[]>;
+
   createTemplate(template: {
-    title: string
-    description?: string
-    aiGenerated: boolean
+    title: string;
+    description?: string;
+    aiGenerated: boolean;
     questions: Array<{
-      text: string
-      weight: number
+      text: string;
+      weight: number;
       options: Array<{
-        text: string
-        value: string
-        icon?: string
-      }>
-    }>
-  }): Promise<string>
+        text: string;
+        value: string;
+        icon?: string;
+      }>;
+    }>;
+  }): Promise<string>;
 
-  getTemplateById(templateId: string): Promise<SurveyTemplate | null>
+  getTemplateById(templateId: string): Promise<SurveyTemplate | null>;
 
-  getTemplateWithQuestions(templateId: string): Promise<SurveyTemplate | null>
+  getTemplateWithQuestions(templateId: string): Promise<SurveyTemplate | null>;
 
-  getQuestionsByTemplateId(templateId: string): Promise<Question[]>
+  getQuestionsByTemplateId(templateId: string): Promise<Question[]>;
 
-  getOptionsByQuestionId(questionId: string): Promise<Option[]>
+  getOptionsByQuestionId(questionId: string): Promise<Option[]>;
 
-  createUserSurvey(userId: string, templateId: string): Promise<string>
+  createUserSurvey(userId: string, templateId: string): Promise<string>;
 
-  getUserSurveyById(surveyId: string): Promise<UserSurvey | null>
+  getUserSurveyById(surveyId: string): Promise<UserSurvey | null>;
 
-  saveUserResponses(userSurveyId: string, responses: Array<{ questionId: string; optionId: string }>): Promise<void>
+  saveUserResponses(
+    userSurveyId: string,
+    responses: Array<{ questionId: string; optionId: string }>
+  ): Promise<void>;
 
-  completeUserSurvey(userSurveyId: string): Promise<void>
+  completeUserSurvey(userSurveyId: string): Promise<void>;
 
-  getUserResponses(userSurveyId: string): Promise<UserResponse[]>
+  getUserResponses(userSurveyId: string): Promise<UserResponse[]>;
 }

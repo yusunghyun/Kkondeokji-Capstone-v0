@@ -7,25 +7,28 @@ import { QrCode, LogIn, LogOut } from "lucide-react";
 import { useUserStore } from "@/shared/store/userStore";
 import { useRouter } from "next/navigation";
 import { useSurveyStore } from "@/shared/store/surveyStore";
+import { useCallback } from "react";
 
 export default function HomePage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { profile } = useUserStore();
-  const { startSurvey } = useSurveyStore();
+  const { generateSurvey, startSurvey } = useSurveyStore();
 
-  const handleStartSurvey = async () => {
+  const handleStartSurvey = useCallback(async () => {
     console.log("handleStartSurvey profile", profile);
-    const isOnboarded = profile?.name && profile?.age && profile?.occupation;
-    if (isOnboarded) {
-      // TODO: 임시로 고정된 templateId 사용
-      const templateId = "0868781a-f163-4854-b797-012c9371f4ec";
+    if (profile?.name && profile?.age && profile?.occupation) {
+      const templateId = await generateSurvey({
+        name: profile.name,
+        age: profile.age,
+        occupation: profile?.occupation,
+      });
       const userSurveyId = await startSurvey(user?.id || "", templateId);
       router.push(`/survey?templateId=${templateId}`);
     } else {
       router.push("/onboarding");
     }
-  };
+  }, [profile, generateSurvey, startSurvey, user, router]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50">

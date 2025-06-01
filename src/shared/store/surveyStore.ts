@@ -7,6 +7,7 @@ import {
   startUserSurvey,
   saveUserResponses,
   completeSurvey,
+  getSurveyTemplateIdList,
 } from "@/core/services/SurveyService";
 
 interface SurveyState {
@@ -57,8 +58,15 @@ export const useSurveyStore = create<SurveyState>()(
       generateSurvey: async (userInfo) => {
         set({ isLoading: true, error: null });
         try {
-          const templateId = await generatePersonalizedSurvey(userInfo);
-          await get().loadSurvey(templateId);
+          const templateIdList = await getSurveyTemplateIdList();
+          console.log("templateIdList", templateIdList);
+          // const templateId = await generatePersonalizedSurvey(userInfo);
+          // await get().loadSurvey(templateId);
+
+          // TODO: 랜덤으로 고르기
+          const templateId =
+            templateIdList[Math.floor(Math.random() * templateIdList.length)];
+
           return templateId;
         } catch (error) {
           set({

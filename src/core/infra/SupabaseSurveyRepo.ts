@@ -9,6 +9,17 @@ import type { SurveyRepo } from "@/core/repositories/SurveyRepo";
 import { supabase } from "@/shared/utils/supabaseClient";
 
 export const supabaseSurveyRepo: SurveyRepo = {
+  async getTemplateIdList(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("survey_templates")
+      .select("id");
+    if (error) {
+      console.error("Error fetching survey template list:", error);
+      return [];
+    }
+    return data.map((item) => item.id);
+  },
+
   async createTemplate(template): Promise<string> {
     // Start a transaction
     const { data: templateData, error: templateError } = await supabase
