@@ -103,7 +103,10 @@ export function LoginForm() {
       <CardFooter className="flex justify-center">
         <p className="text-sm text-gray-500">
           계정이 없으신가요?{" "}
-          <Link href="/onboarding" className="text-primary-500 hover:underline">
+          <Link
+            href="/auth/register"
+            className="text-primary-500 hover:underline"
+          >
             회원가입하기
           </Link>
         </p>

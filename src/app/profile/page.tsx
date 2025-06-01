@@ -48,7 +48,7 @@ export default function ProfilePage() {
     initProfile();
   }, [fetchProfile, generateQRCode, router, userQRCode]);
 
-  if (!user) {
+  if (!user || !profile) {
     return <LoadingScreen />;
   }
 

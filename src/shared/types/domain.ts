@@ -87,6 +87,10 @@ export interface UserProfile {
   age: number | null;
   occupation: string | null;
   interests: InterestTag[];
+  // questionResponses: Array<{
+  //   question: string | null;
+  //   answer: string | null;
+  // }>;
   createdAt: Date;
 }
 

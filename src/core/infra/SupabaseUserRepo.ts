@@ -90,6 +90,7 @@ export const supabaseUserRepo: UserRepo = {
         age: userData.age,
         occupation: userData.occupation,
         interests: [],
+        questionResponses: [],
         createdAt: new Date(userData.created_at),
       };
     }
@@ -102,8 +103,12 @@ export const supabaseUserRepo: UserRepo = {
         `
         id,
         option_id,
+        question_id,
         options:option_id (
           value
+        ),
+        questions:question_id (
+          text
         )
       `
       )
@@ -117,9 +122,19 @@ export const supabaseUserRepo: UserRepo = {
     // Extract unique interest tags
     const interests = Array.from(
       new Set(
-        responses.map((r) => r.options?.value).filter(Boolean) as string[]
+        responses
+          .map(
+            (r) =>
+              `${r.questions?.text.split("에 얼마나 관심이 있나요?")[0]}-${
+                r.options?.value
+              }`
+          )
+          .filter(Boolean) as string[]
       )
     );
+
+    // Extract questions and their answers
+    const questionResponses = responses.map((r) => r.questions?.text);
 
     return {
       id: userData.id,
@@ -127,6 +142,7 @@ export const supabaseUserRepo: UserRepo = {
       age: userData.age,
       occupation: userData.occupation,
       interests,
+      // questionResponses,
       createdAt: new Date(userData.created_at),
     };
   },
