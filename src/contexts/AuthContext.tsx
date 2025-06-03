@@ -26,13 +26,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { fetchProfile } = useUserStore();
+  const { fetchProfile, fetchUser } = useUserStore();
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const currentUser = await getCurrentUser();
+      console.log("currentUser", currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     console.log("user", user);
     if (user) {
       console.log("fetchProfile", user.id);
       fetchProfile(user.id || "");
+      fetchUser();
     }
   }, [user, fetchProfile]);
 

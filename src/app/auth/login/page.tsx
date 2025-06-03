@@ -11,18 +11,18 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user) {
+    if (user) {
       router.push("/");
     }
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 justify-center items-center">
-        <p>로딩 중...</p>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 justify-center items-center">
+  //       <p>로딩 중...</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50">
