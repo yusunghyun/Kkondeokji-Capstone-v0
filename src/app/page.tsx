@@ -75,7 +75,12 @@ export default function HomePage() {
               variant="ghost"
               className="text-gray-600 hover:text-primary-500"
               onClick={() => router.push("/profile")}
-              disabled={!currentUser}
+              disabled={
+                !profile?.name ||
+                !profile?.age ||
+                !profile?.occupation ||
+                !profile?.interests
+              }
             >
               <User className="mr-2 h-4 w-4" />
               프로필
