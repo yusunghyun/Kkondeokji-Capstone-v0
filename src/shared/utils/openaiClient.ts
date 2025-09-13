@@ -5,109 +5,32 @@ import {
   getKoreanInterestKeywords,
 } from "@/shared/utils/interestTranslation";
 
-// OpenAI 클라이언트 초기화 - 명시적으로 API 키 설정
-const getOpenAIClient = () => {
-  const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-  console.log(
-    "🔑 OpenAI API Key 상태:",
-    apiKey ? `설정됨 (${apiKey.slice(0, 7)}...)` : "❌ 없음"
-  );
-
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.");
-  }
-
-  return openai(apiKey);
-};
-
 export async function generateSurveyWithOpenAI(userInfo: {
   name?: string;
   age?: number;
   occupation?: string;
   otherUserId?: string;
 }): Promise<any> {
-  console.log("🤖 AI 기반 한국어 설문 생성 시작:", userInfo);
+  console.log("🤖 클라이언트에서 설문 생성 API 호출:", userInfo);
 
   try {
-    // API 키 확인
-    const client = getOpenAIClient();
-
-    // 한국어 기반 트렌드 관심사 가져오기
-    const trendingInterests = getTrendingInterests();
-    const currentSeason = getCurrentSeason();
-    const ageGroup = getAgeGroup(userInfo.age);
-
-    const prompt = `당신은 한국의 젊은 세대를 위한 매칭 설문 전문가입니다. 다음 사용자를 위한 **완전 한국어 기반** 개인 맞춤 설문조사를 생성해주세요.
-
-**사용자 정보:**
-- 이름: ${userInfo.name || "사용자"}
-- 나이: ${userInfo.age || "미상"}세 (${ageGroup})
-- 직업: ${userInfo.occupation || "미상"}
-
-**현재 트렌드:** ${trendingInterests.slice(0, 10).join(", ")}
-**계절/시기:** ${currentSeason}
-
-**설문 생성 원칙:**
-1. ✅ **100% 한국어**: 모든 텍스트를 자연스러운 한국어로
-2. ✅ **MZ세대 친화적**: 요즘 트렌드와 문화 반영
-3. ✅ **실용적 매칭**: 실제 만남에서 대화 소재가 될 주제
-4. ✅ **감정 기반 선택지**: 매우좋아함/좋아함/보통/관심없음
-5. ✅ **지역/나이별 맞춤**: ${ageGroup}에 적합한 주제
-
-**질문 영역 (8개 문항):**
-- 엔터테인먼트 (드라마, 예능, 웹툰, 유튜브)
-- 라이프스타일 (운동, 카페, 취미)
-- 음식/카페 (맛집, 디저트, 음료)
-- 여가활동 (여행, 쇼핑, 문화생활)
-- 성격/가치관 (MBTI, 연애관, 인생관)
-- 지역/장소 (동네, 핫플레이스)
-- 계절 트렌드 (${currentSeason} 특별 주제)
-- 소통 스타일 (대화 방식, 만남 선호)
-
-**출력 형식 (JSON):**
-{
-  "title": "당신만의 매칭 설문조사",
-  "description": "AI가 생성한 맞춤형 한국어 설문",
-  "questions": [
-    {
-      "text": "요즘 가장 재미있게 보고 있는 드라마나 예능은?",
-      "category": "엔터테인먼트",
-      "weight": 3,
-      "options": [
-        {"text": "매우 좋아함", "value": "drama_love", "icon": "😍"},
-        {"text": "좋아함", "value": "drama_like", "icon": "😊"},
-        {"text": "보통", "value": "drama_neutral", "icon": "😐"},
-        {"text": "관심 없음", "value": "drama_dislike", "icon": "😑"}
-      ]
-    }
-  ]
-}
-
-**예시 질문들:**
-- "요즘 인기인 '웹툰 원작 드라마'에 대한 관심도는?"
-- "주말 오후, 가장 하고 싶은 활동은?"
-- "카페에서 주로 시키는 메뉴 스타일은?"
-- "여행지를 고를 때 가장 중요한 요소는?"
-- "MBTI가 실제 성격을 잘 나타낸다고 생각하나요?"
-- "데이트 장소로 선호하는 곳은?"
-- "${currentSeason}에 가장 하고 싶은 활동은?"
-- "처음 만나는 사람과 대화할 때 편한 주제는?"
-
-지금 당장 한국 ${ageGroup}들 사이에서 핫한 주제들로 **자연스럽고 재미있는 8개 질문**을 만들어주세요!`;
-
-    console.log("🚀 OpenAI GPT-4o-mini로 한국어 설문 요청 중...");
-
-    const { text } = await generateText({
-      model: openai("gpt-4o-mini"),
-      prompt,
-      maxTokens: 2000,
-      temperature: 0.8, // 창의성 향상
+    // 내부 API Route 호출 (보안 안전)
+    const response = await fetch("/api/generate-survey", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(userInfo),
     });
 
-    console.log("✅ AI 설문 생성 완료!");
-    const result = parseSurveyResponse(text);
+    if (!response.ok) {
+      throw new Error(`API 호출 실패: ${response.status}`);
+    }
 
-    console.log("📋 생성된 설문 미리보기:", {
+    const result = await response.json();
+
+    console.log("✅ 서버에서 설문 생성 완료!");
+    console.log("📋 생성된 설문:", {
       title: result?.title,
       questionCount: result?.questions?.length,
       sampleQuestion: result?.questions?.[0]?.text,
@@ -115,9 +38,9 @@ export async function generateSurveyWithOpenAI(userInfo: {
 
     return result;
   } catch (error) {
-    console.error("❌ AI 설문 생성 실패:", error);
+    console.error("❌ 설문 생성 API 호출 실패:", error);
 
-    // 한국어 폴백 설문 제공
+    // 최종 폴백: 클라이언트 사이드 기본 설문
     return generateKoreanFallbackSurvey(userInfo);
   }
 }
@@ -182,7 +105,7 @@ ${matchData.commonResponses
 🎯 **데이트 아이디어**
 - 공통 관심사를 활용한 데이트 장소/활동 추천 2-3개
 
-💡 **관계 조언**
+�� **관계 조언**
 - 이 매칭에서 주의할 점이나 발전시킬 수 있는 방법
 
 따뜻하고 긍정적인 톤으로 작성하되, 현실적인 조언도 포함해주세요. 길이는 300-500자 정도로 작성해주세요.`;
@@ -555,20 +478,17 @@ function getAgeGroup(age?: number): string {
   return "3040세대";
 }
 
-// 한국어 폴백 설문 생성
+// 클라이언트 사이드 폴백 설문
 function generateKoreanFallbackSurvey(userInfo: {
   name?: string;
   age?: number;
   occupation?: string;
 }): any {
-  const ageGroup = getAgeGroup(userInfo.age);
-  const currentSeason = getCurrentSeason();
-
-  console.log("🔄 한국어 기본 설문으로 폴백:", ageGroup, currentSeason);
+  console.log("🔄 클라이언트 폴백 설문 사용");
 
   return {
-    title: `${userInfo.name || "당신"}을 위한 맞춤 설문`,
-    description: "AI가 생성한 개인 맞춤형 한국어 설문조사",
+    title: `${userInfo.name || "당신"}을 위한 기본 설문`,
+    description: "기본 한국어 설문조사",
     questions: [
       {
         text: "요즘 가장 즐겨보는 콘텐츠는?",
@@ -582,80 +502,14 @@ function generateKoreanFallbackSurvey(userInfo: {
         ],
       },
       {
-        text: `${currentSeason}에 가장 하고 싶은 활동은?`,
-        category: "계절활동",
+        text: "주말에 가장 하고 싶은 활동은?",
+        category: "라이프스타일",
         weight: 2,
         options: [
-          { text: "매우 좋아함", value: "seasonal_love", icon: "🌟" },
-          { text: "좋아함", value: "seasonal_like", icon: "👍" },
-          { text: "보통", value: "seasonal_neutral", icon: "😐" },
-          { text: "관심 없음", value: "seasonal_dislike", icon: "👎" },
-        ],
-      },
-      {
-        text: "주말 데이트로 가장 선호하는 장소는?",
-        category: "데이트",
-        weight: 3,
-        options: [
-          { text: "매우 좋아함", value: "date_love", icon: "💕" },
-          { text: "좋아함", value: "date_like", icon: "❤️" },
-          { text: "보통", value: "date_neutral", icon: "😐" },
-          { text: "관심 없음", value: "date_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "카페에서 주로 마시는 음료는?",
-        category: "음식",
-        weight: 2,
-        options: [
-          { text: "매우 좋아함", value: "drink_love", icon: "☕" },
-          { text: "좋아함", value: "drink_like", icon: "🥤" },
-          { text: "보통", value: "drink_neutral", icon: "😐" },
-          { text: "관심 없음", value: "drink_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "운동이나 액티비티에 대한 관심도는?",
-        category: "운동",
-        weight: 2,
-        options: [
-          { text: "매우 좋아함", value: "exercise_love", icon: "💪" },
-          { text: "좋아함", value: "exercise_like", icon: "🏃" },
-          { text: "보통", value: "exercise_neutral", icon: "😐" },
-          { text: "관심 없음", value: "exercise_dislike", icon: "😴" },
-        ],
-      },
-      {
-        text: "여행을 계획할 때 가장 중요한 요소는?",
-        category: "여행",
-        weight: 2,
-        options: [
-          { text: "매우 중요함", value: "travel_love", icon: "✈️" },
-          { text: "중요함", value: "travel_like", icon: "🗺️" },
-          { text: "보통", value: "travel_neutral", icon: "😐" },
-          { text: "중요하지 않음", value: "travel_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "새로운 사람과 만날 때 선호하는 분위기는?",
-        category: "소통",
-        weight: 3,
-        options: [
-          { text: "매우 선호함", value: "meeting_love", icon: "🤝" },
-          { text: "선호함", value: "meeting_like", icon: "😊" },
-          { text: "보통", value: "meeting_neutral", icon: "😐" },
-          { text: "선호하지 않음", value: "meeting_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "MBTI가 실제 성격을 잘 나타낸다고 생각하나요?",
-        category: "성격",
-        weight: 1,
-        options: [
-          { text: "매우 그렇다", value: "mbti_love", icon: "🎯" },
-          { text: "그렇다", value: "mbti_like", icon: "👍" },
-          { text: "보통", value: "mbti_neutral", icon: "😐" },
-          { text: "그렇지 않다", value: "mbti_dislike", icon: "👎" },
+          { text: "매우 좋아함", value: "weekend_love", icon: "🌟" },
+          { text: "좋아함", value: "weekend_like", icon: "👍" },
+          { text: "보통", value: "weekend_neutral", icon: "😐" },
+          { text: "관심 없음", value: "weekend_dislike", icon: "👎" },
         ],
       },
     ],
