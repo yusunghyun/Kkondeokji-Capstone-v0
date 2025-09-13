@@ -11,6 +11,7 @@ interface QRCodeState {
   generateQRCode: (userId: string) => Promise<QRCode>;
   fetchQRCode: (userId: string) => Promise<QRCode | null>;
   clearError: () => void;
+  reset: () => void;
 }
 
 export const useQRCodeStore = create<QRCodeState>((set) => ({
@@ -19,6 +20,15 @@ export const useQRCodeStore = create<QRCodeState>((set) => ({
   error: null,
 
   clearError: () => set({ error: null }),
+
+  reset: () => {
+    console.log("qrCodeStore reset 실행");
+    set({
+      userQRCode: null,
+      isLoading: false,
+      error: null,
+    });
+  },
 
   generateQRCode: async (userId: string) => {
     set({ isLoading: true, error: null });

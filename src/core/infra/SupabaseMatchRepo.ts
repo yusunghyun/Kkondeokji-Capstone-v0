@@ -46,7 +46,10 @@ export const supabaseMatchRepo: MatchRepo = {
       user1Id: data.user1_id,
       user2Id: data.user2_id,
       matchScore: data.match_score,
-      commonInterests: data.common_interests,
+      commonInterests: data.common_interests as {
+        tags: string[];
+        responses: Array<{ question: string; answer: string }>;
+      } | null,
       aiInsights: data.ai_insights,
       createdAt: new Date(data.created_at),
     };
@@ -77,7 +80,10 @@ export const supabaseMatchRepo: MatchRepo = {
       user1Id: data.user1_id,
       user2Id: data.user2_id,
       matchScore: data.match_score,
-      commonInterests: data.common_interests,
+      commonInterests: data.common_interests as {
+        tags: string[];
+        responses: Array<{ question: string; answer: string }>;
+      } | null,
       aiInsights: data.ai_insights,
       createdAt: new Date(data.created_at),
     };
@@ -86,7 +92,17 @@ export const supabaseMatchRepo: MatchRepo = {
   async getUserMatches(userId): Promise<Match[]> {
     const { data, error } = await supabase
       .from("matches")
-      .select("*")
+      .select(
+        `
+        id,
+        user1_id,
+        user2_id,
+        match_score,
+        common_interests,
+        ai_insights,
+        created_at
+      `
+      )
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .order("created_at", { ascending: false });
 
@@ -95,15 +111,41 @@ export const supabaseMatchRepo: MatchRepo = {
       return [];
     }
 
-    return data.map((item) => ({
-      id: item.id,
-      user1Id: item.user1_id,
-      user2Id: item.user2_id,
-      matchScore: item.match_score,
-      commonInterests: item.common_interests,
-      aiInsights: item.ai_insights,
-      createdAt: new Date(item.created_at),
-    }));
+    // 각 매치에 대해 사용자 정보를 별도로 가져오기
+    const matchesWithUsers = await Promise.all(
+      data.map(async (item) => {
+        // user1 정보 가져오기
+        const { data: user1Data } = await supabase
+          .from("users")
+          .select("id, name, age, occupation")
+          .eq("id", item.user1_id)
+          .single();
+
+        // user2 정보 가져오기
+        const { data: user2Data } = await supabase
+          .from("users")
+          .select("id, name, age, occupation")
+          .eq("id", item.user2_id)
+          .single();
+
+        return {
+          id: item.id,
+          user1Id: item.user1_id,
+          user2Id: item.user2_id,
+          matchScore: item.match_score,
+          commonInterests: item.common_interests as {
+            tags: string[];
+            responses: Array<{ question: string; answer: string }>;
+          } | null,
+          aiInsights: item.ai_insights,
+          createdAt: new Date(item.created_at),
+          user1: user1Data || undefined,
+          user2: user2Data || undefined,
+        };
+      })
+    );
+
+    return matchesWithUsers;
   },
 
   async updateAiInsights(matchId, insights): Promise<void> {

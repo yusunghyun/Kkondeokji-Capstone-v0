@@ -200,13 +200,24 @@ export const useSurveyStore = create<SurveyState>()(
       },
 
       reset: () => {
+        console.log("surveyStore reset 실행");
+
+        // 1. 모든 상태 초기화
         set({
+          userId: null,
           surveyTemplate: null,
           userSurveyId: null,
           currentQuestionIndex: 0,
           responses: [],
+          isLoading: false,
           error: null,
         });
+
+        // 2. persist된 데이터 정리
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("survey-store");
+          console.log("persist된 설문 데이터 정리 완료");
+        }
       },
     }),
     {

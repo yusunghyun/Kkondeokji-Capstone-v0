@@ -227,12 +227,20 @@ export const useUserStore = create<UserState>()(
 
       logout: () => {
         console.log("userStore logout 실행");
+
+        // 1. 상태 초기화
         set({
           currentUser: null,
           profile: null,
           isLoading: false,
           error: null,
         });
+
+        // 2. persist된 데이터 정리
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("user-store");
+          console.log("persist된 사용자 데이터 정리 완료");
+        }
       },
     }),
     {

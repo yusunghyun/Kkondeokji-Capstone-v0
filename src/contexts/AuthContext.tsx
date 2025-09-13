@@ -4,6 +4,9 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { getCurrentUser, signIn, signUp, signOut, AuthUser } from "@/lib/auth";
 import { useUserStore } from "@/shared/store/userStore";
+import { useSurveyStore } from "@/shared/store/surveyStore";
+import { useQRCodeStore } from "@/shared/store/qrCodeStore";
+import { useMatchStore } from "@/shared/store/matchStore";
 import { useRouter } from "next/navigation";
 
 interface AuthContextType {
@@ -19,6 +22,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { logout: userStoreLogout, fetchProfile } = useUserStore();
+  const { reset: surveyStoreReset } = useSurveyStore();
+  const { reset: qrCodeStoreReset } = useQRCodeStore();
+  const { clearMatch: matchStoreClear } = useMatchStore();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -79,6 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (event === "SIGNED_OUT") {
         console.log("로그아웃 완료");
         userStoreLogout();
+        surveyStoreReset();
+        qrCodeStoreReset();
+        matchStoreClear();
         setUser(null);
         setLoading(false);
       } else if (event === "TOKEN_REFRESHED" && session) {
@@ -102,7 +111,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchProfile, userStoreLogout]);
+  }, [
+    fetchProfile,
+    userStoreLogout,
+    surveyStoreReset,
+    qrCodeStoreReset,
+    matchStoreClear,
+  ]);
 
   const handleSignIn = async (email: string, password: string) => {
     try {
@@ -135,16 +150,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     try {
-      setLoading(true);
       console.log("로그아웃 시도");
+      setLoading(true);
+
+      // 1. Supabase 로그아웃 실행
       await signOut();
-      userStoreLogout(); // 사용자 스토어 데이터도 함께 초기화
-      router.push("/");
-      // onAuthStateChange에서 추가 처리됨
+
+      // 2. 모든 상태 강제 초기화
+      setUser(null);
+      userStoreLogout(); // 사용자 스토어 데이터 초기화
+      surveyStoreReset();
+      qrCodeStoreReset();
+      matchStoreClear();
+
+      console.log("상태 초기화 완료");
+
+      // 3. 홈으로 리다이렉트 (강제)
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
+
+      console.log("로그아웃 완료");
     } catch (error) {
       console.error("로그아웃 실패:", error);
+
+      // 에러가 발생해도 상태는 초기화
+      setUser(null);
+      userStoreLogout();
+      surveyStoreReset();
+      qrCodeStoreReset();
+      matchStoreClear();
+
+      // 강제 리다이렉트
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
+    } finally {
       setLoading(false);
-      throw error;
     }
   };
 

@@ -70,6 +70,19 @@ export interface Match {
   } | null;
   aiInsights: string | null;
   createdAt: Date;
+  // 상대방 정보 (선택적)
+  user1?: {
+    id: string;
+    name: string | null;
+    age: number | null;
+    occupation: string | null;
+  };
+  user2?: {
+    id: string;
+    name: string | null;
+    age: number | null;
+    occupation: string | null;
+  };
 }
 
 export interface QRCode {

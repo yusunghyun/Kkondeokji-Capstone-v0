@@ -52,22 +52,39 @@ export async function signIn(email: string, password: string) {
 export async function signOut() {
   console.log("로그아웃 시도");
   try {
-    // 세션 갱신 시도
-    const { error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError) {
-      console.warn("세션 갱신 실패, 로그아웃 계속 진행:", refreshError.message);
+    // 1. Supabase 로그아웃 실행
+    const { error } = await supabase.auth.signOut({
+      scope: 'global' // 모든 세션에서 로그아웃
+    });
+    
+    if (error) {
+      console.error("Supabase 로그아웃 실패:", error.message);
+      // 에러가 있어도 계속 진행 (로컬 정리는 해야 함)
     }
 
-    // 로그아웃 실행
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("로그아웃 실패:", error.message);
-      throw new Error(error.message);
+    // 2. 로컬 스토리지 정리
+    if (typeof window !== 'undefined') {
+      // Supabase 관련 스토리지 정리
+      localStorage.removeItem('sb-' + process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('https://', '').replace('.supabase.co', '') + '-auth-token');
+      localStorage.removeItem('kkondeokji-auth-token');
+      
+      // 세션 스토리지도 정리
+      sessionStorage.clear();
+      
+      console.log("로컬 스토리지 정리 완료");
     }
 
     console.log("로그아웃 성공");
   } catch (error) {
     console.error("로그아웃 중 예외 발생:", error);
+    
+    // 에러가 발생해도 로컬 정리는 시도
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+      sessionStorage.clear();
+      console.log("에러 발생으로 전체 스토리지 정리");
+    }
+    
     throw error;
   }
 }
