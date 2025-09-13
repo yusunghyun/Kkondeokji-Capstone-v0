@@ -1,132 +1,162 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
-import { useRouter } from "next/navigation";
-import { AuthUser, getCurrentUser, signIn, signOut, signUp } from "@/lib/auth";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getCurrentUser, signIn, signUp, signOut, AuthUser } from "@/lib/auth";
 import { useUserStore } from "@/shared/store/userStore";
+import { useRouter } from "next/navigation";
 
-type AuthContextType = {
+interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const { logout: userStoreLogout, fetchProfile } = useUserStore();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const { fetchProfile, fetchUser } = useUserStore();
 
+  // 초기 로드 및 세션 체크
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      const currentUser = await getCurrentUser();
-      console.log("currentUser", currentUser);
-      if (currentUser) {
-        setUser(currentUser);
-      }
-    };
-    fetchCurrentUser();
-  }, []);
+    console.log("AuthProvider - 초기 세션 체크");
 
-  useEffect(() => {
-    console.log("user", user);
-    if (user) {
-      console.log("fetchProfile", user.id);
-      fetchProfile(user.id || "");
-      fetchUser();
-    }
-  }, [user, fetchProfile]);
-
-  useEffect(() => {
-    const fetchUser = async () => {
+    const checkSession = async () => {
       try {
-        console.log("fetchUser");
-        const user = await getCurrentUser();
-        setUser(user);
+        setLoading(true);
+        const currentUser = await getCurrentUser();
+        console.log("초기 세션 체크 결과:", currentUser);
+
+        if (currentUser) {
+          setUser(currentUser);
+
+          // 프로필 데이터 로드
+          try {
+            await fetchProfile(currentUser.id);
+            console.log("프로필 로드 완료");
+          } catch (profileError) {
+            console.error("프로필 로드 실패:", profileError);
+          }
+        }
       } catch (error) {
+        console.error("세션 체크 에러:", error);
         setUser(null);
       } finally {
-        console.log("fetchUser finally");
         setLoading(false);
       }
     };
 
-    fetchUser();
+    checkSession();
 
+    // 인증 상태 변경 리스너
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === "SIGNED_IN") {
-        const user = await getCurrentUser();
-        setUser(user);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("인증 상태 변경:", event, session?.user?.id);
+
+      if (event === "SIGNED_IN" && session) {
+        const authUser = {
+          id: session.user.id,
+          email: session.user.email || "",
+        };
+        console.log("로그인 성공:", authUser);
+        setUser(authUser);
+
+        // 프로필 로드
+        try {
+          await fetchProfile(authUser.id);
+          console.log("로그인 후 프로필 로드 완료");
+        } catch (error) {
+          console.error("로그인 후 프로필 로드 실패:", error);
+        }
+
+        setLoading(false);
       } else if (event === "SIGNED_OUT") {
+        console.log("로그아웃 완료");
+        userStoreLogout();
         setUser(null);
+        setLoading(false);
+      } else if (event === "TOKEN_REFRESHED" && session) {
+        console.log("토큰 갱신됨");
+        const authUser = {
+          id: session.user.id,
+          email: session.user.email || "",
+        };
+        setUser(authUser);
+
+        // 토큰 갱신 시에도 프로필 확인
+        try {
+          await fetchProfile(authUser.id);
+          console.log("토큰 갱신 후 프로필 확인 완료");
+        } catch (error) {
+          console.error("토큰 갱신 후 프로필 확인 실패:", error);
+        }
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile, userStoreLogout]);
 
   const handleSignIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      await signIn(email, password);
-      const user = await getCurrentUser();
-      setUser(user);
+      console.log("로그인 시도:", email);
+      const userData = await signIn(email, password);
+      console.log("로그인 성공:", userData);
+
+      // onAuthStateChange에서 처리되므로 여기서는 추가 작업 불필요
       router.push("/");
-    } finally {
+    } catch (error) {
+      console.error("로그인 실패:", error);
       setLoading(false);
+      throw error;
     }
   };
 
   const handleSignUp = async (email: string, password: string) => {
     try {
       setLoading(true);
+      console.log("회원가입 시도:", email);
       await signUp(email, password);
-      const user = await getCurrentUser();
-      setUser(user);
-    } finally {
+      // onAuthStateChange에서 처리됨
+    } catch (error) {
+      console.error("회원가입 실패:", error);
       setLoading(false);
+      throw error;
     }
   };
 
   const handleSignOut = async () => {
     try {
       setLoading(true);
+      console.log("로그아웃 시도");
       await signOut();
-      setUser(null);
+      userStoreLogout(); // 사용자 스토어 데이터도 함께 초기화
       router.push("/");
-    } finally {
+      // onAuthStateChange에서 추가 처리됨
+    } catch (error) {
+      console.error("로그아웃 실패:", error);
       setLoading(false);
+      throw error;
     }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signIn: handleSignIn,
-        signUp: handleSignUp,
-        signOut: handleSignOut,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    user,
+    loading,
+    signIn: handleSignIn,
+    signUp: handleSignUp,
+    signOut: handleSignOut,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

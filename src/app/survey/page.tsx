@@ -9,9 +9,11 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useSurveyStore } from "@/shared/store/surveyStore";
 import { QuestionCard } from "@/features/survey/components/question-card";
 import { LoadingScreen } from "@/features/survey/components/loading-screen";
+import { useAuth } from "@/contexts/AuthContext";
 
 function SurveyContent() {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     surveyTemplate,
     currentQuestionIndex,
@@ -23,50 +25,81 @@ function SurveyContent() {
     nextQuestion,
     prevQuestion,
     submitSurvey,
+    reset,
   } = useSurveyStore();
-  const { generateSurvey } = useSurveyStore();
+  const { generateSurvey, startSurvey } = useSurveyStore();
 
   const searchParams = useSearchParams();
-  const firstTemplateId = searchParams.get("templateId");
+  const templateId = searchParams.get("templateId");
 
   useEffect(() => {
-    console.log("surveyTemplate", surveyTemplate);
-    console.log("responses", responses);
-    console.log("currentQuestionIndex", currentQuestionIndex);
-  }, [surveyTemplate, responses, currentQuestionIndex]);
-
-  // TODO 템플릿에 질문이 여러개 있지 않아서 임의로 템플릿ID 가지고 옴. 일단 5번까지는 이렇게 하자.
-  const handleLoadSurvey = useCallback(async () => {
-    const templateId = await generateSurvey({
-      name: undefined,
-      age: undefined,
-      occupation: undefined,
+    console.log("설문 페이지 초기화:", {
+      surveyTemplate,
+      currentQuestionIndex,
+      templateId,
+      responsesCount: responses.length,
     });
-    loadSurvey(templateId);
-  }, [generateSurvey, loadSurvey]);
+  }, [surveyTemplate, responses, currentQuestionIndex, templateId]);
+
+  // 설문 로딩 함수
+  const handleInitSurvey = useCallback(async () => {
+    try {
+      if (!user) {
+        console.error("사용자 인증 정보 없음");
+        router.push("/auth/login");
+        return;
+      }
+
+      // 템플릿 ID가 URL에 있는 경우
+      if (templateId) {
+        console.log(`템플릿 ID로 설문 로딩: ${templateId}`);
+        await loadSurvey(templateId);
+
+        // 설문 시작 (userSurveyId 생성)
+        await startSurvey(user.id, templateId);
+        return;
+      }
+
+      // 템플릿 ID가 없는 경우 새 설문 생성
+      console.log("새 설문 템플릿 생성");
+      reset(); // 기존 설문 상태 초기화
+
+      const newTemplateId = await generateSurvey({
+        name: undefined,
+        age: undefined,
+        occupation: undefined,
+      });
+
+      console.log(`생성된 템플릿 ID: ${newTemplateId}`);
+      await loadSurvey(newTemplateId);
+
+      // 설문 시작 (userSurveyId 생성)
+      await startSurvey(user.id, newTemplateId);
+
+      // URL 업데이트 (새로고침 시 동일 설문 유지)
+      router.push(`/survey?templateId=${newTemplateId}`);
+    } catch (error) {
+      console.error("설문 초기화 실패:", error);
+    }
+  }, [
+    templateId,
+    user,
+    loadSurvey,
+    generateSurvey,
+    startSurvey,
+    router,
+    reset,
+  ]);
 
   // 초기 설문지 로딩
   useEffect(() => {
-    if (firstTemplateId && currentQuestionIndex === 0) {
-      loadSurvey(firstTemplateId);
-      return;
+    if (!surveyTemplate) {
+      handleInitSurvey();
     }
-    if (currentQuestionIndex > 0 && currentQuestionIndex < 6) {
-      handleLoadSurvey();
-      return;
-    }
-    console.log("??????????????", currentQuestionIndex);
-    router.push("/onboarding");
-  }, [
-    firstTemplateId,
-    loadSurvey,
-    router,
-    handleLoadSurvey,
-    currentQuestionIndex,
-  ]);
+  }, [surveyTemplate, handleInitSurvey]);
 
   if (isLoading || !surveyTemplate) {
-    return <LoadingScreen />;
+    return <LoadingScreen message="설문을 준비하고 있습니다..." />;
   }
 
   if (error) {
@@ -84,14 +117,58 @@ function SurveyContent() {
   }
 
   const questions = surveyTemplate.questions || [];
-  // TODO 템플릿에 질문이 여러개 있지 않아서 임의로 5번까지는 이렇게 하자.
-  // const currentQuestion = questions[currentQuestionIndex];
-  const currentQuestion = questions[0];
-  const currentOptions = currentQuestion?.options || [];
+  if (questions.length === 0) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 p-4 items-center justify-center">
+        <Card className="w-full max-w-md p-6">
+          <h2 className="text-xl font-bold text-red-500 mb-4">
+            설문 질문이 없습니다
+          </h2>
+          <p className="mb-4">
+            설문 템플릿에 질문이 없습니다. 다시 시도해주세요.
+          </p>
+          <Button onClick={() => router.push("/")}>다시 시작하기</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const currentQuestion = questions[currentQuestionIndex];
+  if (!currentQuestion) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 p-4 items-center justify-center">
+        <Card className="w-full max-w-md p-6">
+          <h2 className="text-xl font-bold text-red-500 mb-4">
+            질문을 찾을 수 없습니다
+          </h2>
+          <p className="mb-4">
+            현재 질문 인덱스: {currentQuestionIndex}, 총 질문 수:{" "}
+            {questions.length}
+          </p>
+          <Button onClick={() => router.push("/")}>다시 시작하기</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const currentOptions = currentQuestion.options || [];
+  if (currentOptions.length === 0) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 p-4 items-center justify-center">
+        <Card className="w-full max-w-md p-6">
+          <h2 className="text-xl font-bold text-red-500 mb-4">
+            선택지가 없습니다
+          </h2>
+          <p className="mb-4">질문에 선택지가 없습니다. 다시 시도해주세요.</p>
+          <Button onClick={() => router.push("/")}>다시 시작하기</Button>
+        </Card>
+      </div>
+    );
+  }
 
   // Find if user has already answered this question
   const currentResponse = responses.find(
-    (r) => r.questionId === currentQuestion?.id
+    (r) => r.questionId === currentQuestion.id
   );
   const selectedOptionId = currentResponse?.optionId;
 
@@ -108,8 +185,7 @@ function SurveyContent() {
   };
 
   const handleNext = () => {
-    // if (isLastQuestion) {
-    if (currentQuestionIndex === 5) {
+    if (isLastQuestion) {
       handleSubmit();
     } else {
       nextQuestion();
@@ -145,14 +221,12 @@ function SurveyContent() {
 
       <Progress value={progress} className="h-2 mb-8" />
 
-      {currentQuestion && (
-        <QuestionCard
-          question={currentQuestion}
-          options={currentOptions}
-          selectedOptionId={selectedOptionId}
-          onSelect={handleOptionSelect}
-        />
-      )}
+      <QuestionCard
+        question={currentQuestion}
+        options={currentOptions}
+        selectedOptionId={selectedOptionId}
+        onSelect={handleOptionSelect}
+      />
 
       <Button
         onClick={handleNext}
@@ -168,7 +242,9 @@ function SurveyContent() {
 
 export default function SurveyPage() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense
+      fallback={<LoadingScreen message="설문을 불러오는 중입니다..." />}
+    >
       <SurveyContent />
     </Suspense>
   );

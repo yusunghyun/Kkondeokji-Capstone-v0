@@ -1,5 +1,5 @@
 import { getSurveyRepo, getUserRepo, getMatchRepo } from "@/core/infra/RepositoryFactory"
-import { generateMatchInsights } from "@/shared/utils/grokClient"
+import { generateMatchInsightsWithOpenAI } from "@/shared/utils/openaiClient"
 import type { MatchResult, UserResponse, Question, Option } from "@/shared/types/domain"
 
 export async function calculateMatch(
@@ -51,7 +51,7 @@ export async function calculateMatch(
     const user2 = await getUserRepo().getById(user2Id)
 
     // Generate AI insights
-    const aiInsights = await generateMatchInsights({
+    const aiInsights = await generateMatchInsightsWithOpenAI({
       user1: {
         name: user1?.name || undefined,
         age: user1?.age || undefined,

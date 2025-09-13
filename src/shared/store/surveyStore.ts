@@ -58,28 +58,34 @@ export const useSurveyStore = create<SurveyState>()(
       generateSurvey: async (userInfo) => {
         set({ isLoading: true, error: null });
         try {
-          const templateIdList = await getSurveyTemplateIdList();
-          console.log("templateIdList", templateIdList);
-          // const templateId = await generatePersonalizedSurvey(userInfo);
-          // await get().loadSurvey(templateId);
+          // AI 기반 개인화 설문 생성
+          const templateId = await generatePersonalizedSurvey(userInfo);
 
-          // TODO: 랜덤으로 고르기
-          const templateId =
-            templateIdList[Math.floor(Math.random() * templateIdList.length)];
-
+          set({ isLoading: false });
           return templateId;
         } catch (error) {
-          set({
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to generate survey",
-            isLoading: false,
-          });
-          throw error;
+          console.error("AI 설문 생성 실패, 기존 템플릿 사용:", error);
+
+          // AI 생성 실패 시 기존 템플릿 중 랜덤 선택
+          try {
+            const templateIdList = await getSurveyTemplateIdList();
+            const templateId =
+              templateIdList[Math.floor(Math.random() * templateIdList.length)];
+
+            set({ isLoading: false });
+            return templateId;
+          } catch (fallbackError) {
+            set({
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to generate survey",
+              isLoading: false,
+            });
+            throw error;
+          }
         }
       },
-
       loadSurvey: async (templateId) => {
         set({ isLoading: true, error: null });
         try {
@@ -142,12 +148,16 @@ export const useSurveyStore = create<SurveyState>()(
       nextQuestion: () => {
         const { currentQuestionIndex, surveyTemplate } = get();
 
-        // TODO 템플릿에 질문이 여러개 있지 않아서 임의로 5번까지는 이렇게 하자.
-        // const questionCount = surveyTemplate?.questions?.length || 0;
-        const questionCount = 5;
+        // 실제 질문 개수 사용
+        const questionCount = surveyTemplate?.questions?.length || 0;
 
-        if (currentQuestionIndex < questionCount) {
+        if (currentQuestionIndex < questionCount - 1) {
           set({ currentQuestionIndex: currentQuestionIndex + 1 });
+          console.log(
+            `다음 질문으로 이동: ${currentQuestionIndex + 1}/${questionCount}`
+          );
+        } else {
+          console.log("마지막 질문입니다");
         }
       },
 

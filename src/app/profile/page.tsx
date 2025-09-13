@@ -32,27 +32,47 @@ export default function ProfilePage() {
         return;
       }
 
-      try {
-        // Fetch user profile
-        await fetchProfile(user.id);
+      // Set a timeout to prevent infinite loading
+      const loadingTimeout = setTimeout(() => {
+        console.log("프로필 로딩 타임아웃 - 강제 완료");
+        setIsLoading(false);
+      }, 5000);
 
-        // Generate QR code if not already generated
-        if (!userQRCode) {
+      try {
+        console.log("프로필 페이지 초기화 시작:", user.id);
+        // Fetch user profile
+        const profileData = await fetchProfile(user.id);
+        console.log("프로필 데이터 로드 완료:", profileData);
+
+        // Always try to fetch QR code first
+        console.log("QR 코드 조회 시작");
+        const qrCode = await useQRCodeStore.getState().fetchQRCode(user.id);
+
+        // If no QR code exists, generate one
+        if (!qrCode) {
+          console.log("QR 코드 없음, 새로 생성 시작");
           await generateQRCode(user.id);
+          console.log("QR 코드 생성 완료");
+        } else {
+          console.log("기존 QR 코드 로드 완료:", qrCode.code);
         }
 
         // Fetch user matches
+        console.log("매칭 데이터 로드 시작");
         const userMatches = await getMatchRepo().getUserMatches(user.id);
+        console.log("매칭 데이터 로드 완료:", userMatches.length);
         setMatches(userMatches);
       } catch (error) {
         console.error("Error initializing profile:", error);
       } finally {
+        clearTimeout(loadingTimeout);
         setIsLoading(false);
+        console.log("프로필 페이지 초기화 완료");
       }
     };
 
     initProfile();
-  }, [fetchProfile, generateQRCode, router, userQRCode, user]);
+  }, [fetchProfile, generateQRCode, router, user]);
 
   const handleConnect = () => {
     if (!userId.trim()) return;
@@ -67,7 +87,7 @@ export default function ProfilePage() {
   };
 
   if (!user || !profile) {
-    return <LoadingScreen />;
+    return <LoadingScreen message="프로필 정보를 불러오는 중입니다..." />;
   }
 
   const profileUrl = userQRCode
@@ -93,6 +113,12 @@ export default function ProfilePage() {
       <div className="flex-1 p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">내 프로필</h1>
+          <Button
+            onClick={() => router.push("/")}
+            className="bg-primary-500 hover:bg-primary-600"
+          >
+            새로운 설문하기
+          </Button>{" "}
         </div>
 
         <Card className="mb-6">
@@ -122,17 +148,31 @@ export default function ProfilePage() {
                 <span className="text-sm text-gray-500 block mb-2">
                   관심사:
                 </span>
-                <div className="flex flex-wrap gap-2">
-                  {profile.interests.length > 0 ? (
-                    profile.interests.map((interest, index) => (
-                      <TagChip key={index} label={interest} />
-                    ))
-                  ) : (
-                    <span className="text-gray-400">
-                      아직 관심사가 없습니다
-                    </span>
-                  )}
-                </div>
+                {profile.interests.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-auto">
+                    {(() => {
+                      const maxTags = 8;
+                      const tags = profile.interests;
+                      const displayTags = tags.slice(0, maxTags);
+                      const remaining = tags.length - maxTags;
+                      return (
+                        <>
+                          {displayTags.map((tag, idx) => (
+                            <TagChip key={idx} label={tag} />
+                          ))}
+                          {remaining > 0 && (
+                            <TagChip
+                              label={`+${remaining} 더보기`}
+                              className="bg-secondary/10 text-secondary"
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">아직 관심사가 없습니다</span>
+                )}
               </div>
             </div>
           </CardContent>

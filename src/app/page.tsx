@@ -75,12 +75,7 @@ export default function HomePage() {
               variant="ghost"
               className="text-gray-600 hover:text-primary-500"
               onClick={() => router.push("/profile")}
-              disabled={
-                !profile?.name ||
-                !profile?.age ||
-                !profile?.occupation ||
-                !profile?.interests
-              }
+              disabled={!user} // 사용자가 로그인되어 있으면 항상 프로필 버튼 활성화
             >
               <User className="mr-2 h-4 w-4" />
               프로필

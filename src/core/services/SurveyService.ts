@@ -1,5 +1,5 @@
 import { getSurveyRepo } from "@/core/infra/RepositoryFactory";
-import { generateSurveyWithGrok } from "@/shared/utils/grokClient";
+import { generateSurveyWithOpenAI } from "@/shared/utils/openaiClient";
 import type { SurveyTemplate } from "@/shared/types/domain";
 
 export async function generatePersonalizedSurvey(userInfo: {
@@ -10,7 +10,7 @@ export async function generatePersonalizedSurvey(userInfo: {
 }): Promise<string> {
   try {
     // Generate survey using Grok AI
-    const surveyData = await generateSurveyWithGrok(userInfo);
+    const surveyData = await generateSurveyWithOpenAI(userInfo);
 
     // Create survey template in database
     const templateId = await getSurveyRepo().createTemplate({
