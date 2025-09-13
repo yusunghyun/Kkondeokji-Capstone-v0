@@ -138,14 +138,14 @@ function parseSurveyResponse(text: string) {
     if (!jsonMatch) {
       throw new Error("No JSON found in response");
     }
-    
+
     const parsed = JSON.parse(jsonMatch[0]);
-    
+
     // 기본 구조 검증
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
       throw new Error("Invalid survey structure");
     }
-    
+
     return parsed;
   } catch (error) {
     console.error("Error parsing survey response:", error);
@@ -159,7 +159,7 @@ function parseMatchResponse(text: string) {
     if (!jsonMatch) {
       throw new Error("No JSON found in response");
     }
-    
+
     return JSON.parse(jsonMatch[0]);
   } catch (error) {
     console.error("Error parsing match response:", error);

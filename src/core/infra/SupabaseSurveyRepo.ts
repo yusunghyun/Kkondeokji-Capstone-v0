@@ -6,7 +6,7 @@ import type {
   UserResponse,
 } from "@/shared/types/domain";
 import type { SurveyRepo } from "@/core/repositories/SurveyRepo";
-import { supabase } from "@/shared/utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 
 export const supabaseSurveyRepo: SurveyRepo = {
   async getTemplateIdList(): Promise<string[]> {

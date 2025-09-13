@@ -1,16 +1,16 @@
-import type { QRCode } from "@/shared/types/domain"
-import type { QRCodeRepo } from "@/core/repositories/QRCodeRepo"
-import { supabase } from "@/shared/utils/supabaseClient"
-import { nanoid } from "nanoid"
+import type { QRCodeRepo } from "@/core/repositories/QRCodeRepo";
+import type { QRCode } from "@/shared/types/domain";
+import { supabase } from "@/lib/supabase";
+import { nanoid } from "nanoid";
 
 export const supabaseQRCodeRepo: QRCodeRepo = {
   async create(userId): Promise<QRCode> {
     // Generate a unique code
-    const code = nanoid(10)
+    const code = nanoid(10);
 
     // Set expiration to 7 days from now
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     const { data, error } = await supabase
       .from("qr_codes")
@@ -23,11 +23,11 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
         },
       ])
       .select("*")
-      .single()
+      .single();
 
     if (error) {
-      console.error("Error creating QR code:", error)
-      throw new Error("Failed to create QR code")
+      console.error("Error creating QR code:", error);
+      throw new Error("Failed to create QR code");
     }
 
     return {
@@ -37,15 +37,19 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       scans: data.scans,
       createdAt: new Date(data.created_at),
       expiresAt: data.expires_at ? new Date(data.expires_at) : null,
-    }
+    };
   },
 
   async getByCode(code): Promise<QRCode | null> {
-    const { data, error } = await supabase.from("qr_codes").select("*").eq("code", code).single()
+    const { data, error } = await supabase
+      .from("qr_codes")
+      .select("*")
+      .eq("code", code)
+      .single();
 
     if (error) {
-      console.error("Error fetching QR code:", error)
-      return null
+      console.error("Error fetching QR code:", error);
+      return null;
     }
 
     return {
@@ -55,7 +59,7 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       scans: data.scans,
       createdAt: new Date(data.created_at),
       expiresAt: data.expires_at ? new Date(data.expires_at) : null,
-    }
+    };
   },
 
   async getByUserId(userId): Promise<QRCode | null> {
@@ -65,15 +69,15 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single()
+      .single();
 
     if (error) {
       if (error.code === "PGRST116") {
         // No QR code found
-        return null
+        return null;
       }
-      console.error("Error fetching QR code by user ID:", error)
-      return null
+      console.error("Error fetching QR code by user ID:", error);
+      return null;
     }
 
     return {
@@ -83,7 +87,7 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       scans: data.scans,
       createdAt: new Date(data.created_at),
       expiresAt: data.expires_at ? new Date(data.expires_at) : null,
-    }
+    };
   },
 
   async incrementScans(codeId): Promise<void> {
@@ -92,11 +96,11 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       .update({
         scans: supabase.rpc("increment", { x: 1, row_id: codeId }),
       })
-      .eq("id", codeId)
+      .eq("id", codeId);
 
     if (error) {
-      console.error("Error incrementing QR code scans:", error)
-      throw new Error("Failed to increment QR code scans")
+      console.error("Error incrementing QR code scans:", error);
+      throw new Error("Failed to increment QR code scans");
     }
   },
-}
+};

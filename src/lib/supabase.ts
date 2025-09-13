@@ -31,27 +31,34 @@ const getSupabaseClient = () => {
           if (typeof window === "undefined") {
             return null;
           }
-          const data = localStorage.getItem(key);
-          console.log(
-            `Auth storage getItem: ${key}`,
-            data ? "데이터 있음" : "데이터 없음"
-          );
-          return data;
+          try {
+            const data = localStorage.getItem(key);
+            return data;
+          } catch (error) {
+            console.warn("Error reading from localStorage:", error);
+            return null;
+          }
         },
         setItem: (key, value) => {
           if (typeof window !== "undefined") {
-            console.log(`Auth storage setItem: ${key}`);
-            localStorage.setItem(key, value);
+            try {
+              localStorage.setItem(key, value);
+            } catch (error) {
+              console.warn("Error writing to localStorage:", error);
+            }
           }
         },
         removeItem: (key) => {
           if (typeof window !== "undefined") {
-            console.log(`Auth storage removeItem: ${key}`);
-            localStorage.removeItem(key);
+            try {
+              localStorage.removeItem(key);
+            } catch (error) {
+              console.warn("Error removing from localStorage:", error);
+            }
           }
         },
       },
-      debug: process.env.NODE_ENV === "development",
+      debug: false, // 프로덕션에서는 false
     },
   });
 
@@ -59,20 +66,3 @@ const getSupabaseClient = () => {
 };
 
 export const supabase = getSupabaseClient();
-
-// 세션 디버깅을 위한 함수 (개발 환경에서만 사용)
-if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-  // 5초마다 세션 상태 확인
-  const checkSession = async () => {
-    const instance = getSupabaseClient();
-    const { data } = await instance.auth.getSession();
-    console.log(
-      "Current session check:",
-      data.session ? "세션 있음" : "세션 없음"
-    );
-  };
-
-  // 초기 확인 후 5초마다 확인
-  checkSession();
-  setInterval(checkSession, 5000);
-}
