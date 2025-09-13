@@ -89,63 +89,166 @@ export const supabaseMatchRepo: MatchRepo = {
     };
   },
 
-  async getUserMatches(userId): Promise<Match[]> {
-    const { data, error } = await supabase
-      .from("matches")
-      .select(
-        `
-        id,
-        user1_id,
-        user2_id,
-        match_score,
-        common_interests,
-        ai_insights,
-        created_at
-      `
-      )
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .order("created_at", { ascending: false });
+  async getUserMatches(userId: string): Promise<Match[]> {
+    console.log("🔍 SupabaseMatchRepo getUserMatches 시작 - userId:", userId);
 
-    if (error) {
-      console.error("Error fetching user matches:", error);
+    if (!userId) {
+      console.error("❌ userId가 없습니다");
       return [];
     }
 
-    // 각 매치에 대해 사용자 정보를 별도로 가져오기
-    const matchesWithUsers = await Promise.all(
-      data.map(async (item) => {
-        // user1 정보 가져오기
-        const { data: user1Data } = await supabase
-          .from("users")
-          .select("id, name, age, occupation")
-          .eq("id", item.user1_id)
-          .single();
+    try {
+      // 🎯 1단계: 기본 매칭 데이터 조회
+      console.log("📊 1단계: 매칭 데이터 조회 시작");
+      const { data, error } = await supabase
+        .from("matches")
+        .select(
+          `
+          id,
+          user1_id,
+          user2_id,
+          match_score,
+          common_interests,
+          ai_insights,
+          created_at
+        `
+        )
+        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+        .order("created_at", { ascending: false });
 
-        // user2 정보 가져오기
-        const { data: user2Data } = await supabase
-          .from("users")
-          .select("id, name, age, occupation")
-          .eq("id", item.user2_id)
-          .single();
+      if (error) {
+        console.error("❌ 매칭 데이터 조회 에러:", error);
+        throw error;
+      }
 
-        return {
-          id: item.id,
-          user1Id: item.user1_id,
-          user2Id: item.user2_id,
-          matchScore: item.match_score,
-          commonInterests: item.common_interests as {
-            tags: string[];
-            responses: Array<{ question: string; answer: string }>;
-          } | null,
-          aiInsights: item.ai_insights,
-          createdAt: new Date(item.created_at),
-          user1: user1Data || undefined,
-          user2: user2Data || undefined,
-        };
-      })
-    );
+      console.log("📊 조회된 매칭 데이터:", {
+        총개수: data?.length || 0,
+        샘플:
+          data?.slice(0, 2)?.map((item) => ({
+            id: item.id,
+            user1_id: item.user1_id,
+            user2_id: item.user2_id,
+            match_score: item.match_score,
+          })) || [],
+      });
 
-    return matchesWithUsers;
+      if (!data || data.length === 0) {
+        console.log("📋 매칭 기록이 없습니다");
+        return [];
+      }
+
+      // 🎯 2단계: 상대방 사용자 정보 조회
+      const matchesWithUserDetails: Match[] = [];
+
+      for (const item of data) {
+        try {
+          // 상대방 ID 결정
+          const partnerId =
+            item.user1_id === userId ? item.user2_id : item.user1_id;
+
+          console.log(`👥 매칭 ${item.id}: 상대방 ID ${partnerId} 정보 조회`);
+
+          // 상대방 사용자 정보 조회
+          const { data: partnerData, error: partnerError } = await supabase
+            .from("users")
+            .select("id, name, age, occupation")
+            .eq("id", partnerId)
+            .single();
+
+          if (partnerError) {
+            console.error(
+              `❌ 상대방 정보 조회 에러 (ID: ${partnerId}):`,
+              partnerError
+            );
+            // 에러가 있어도 기본 정보로 계속 진행
+          }
+
+          console.log(`✅ 상대방 정보:`, {
+            id: partnerId,
+            name: partnerData?.name || "알수없음",
+            age: partnerData?.age,
+            occupation: partnerData?.occupation,
+          });
+
+          // 현재 사용자 정보도 조회
+          const { data: currentUserData, error: currentUserError } =
+            await supabase
+              .from("users")
+              .select("id, name, age, occupation")
+              .eq("id", userId)
+              .single();
+
+          if (currentUserError) {
+            console.error(`❌ 현재 사용자 정보 조회 에러:`, currentUserError);
+          }
+
+          // 매칭 객체 생성 (올바른 필드명 사용)
+          const match: Match = {
+            id: item.id,
+            user1Id: item.user1_id,
+            user2Id: item.user2_id,
+            matchScore: item.match_score || 0,
+            commonInterests: (item.common_interests as {
+              tags: string[];
+              responses: { question: string; answer: string }[];
+            } | null) || { tags: [], responses: [] },
+            aiInsights: item.ai_insights || "",
+            createdAt: new Date(item.created_at),
+            // 사용자 정보 추가
+            user1:
+              item.user1_id === userId
+                ? {
+                    id: currentUserData?.id || userId,
+                    name: currentUserData?.name || "나",
+                    age: currentUserData?.age || 0,
+                    occupation: currentUserData?.occupation || "",
+                  }
+                : {
+                    id: partnerData?.id || partnerId,
+                    name: partnerData?.name || "알수없음",
+                    age: partnerData?.age || 0,
+                    occupation: partnerData?.occupation || "",
+                  },
+            user2:
+              item.user2_id === userId
+                ? {
+                    id: currentUserData?.id || userId,
+                    name: currentUserData?.name || "나",
+                    age: currentUserData?.age || 0,
+                    occupation: currentUserData?.occupation || "",
+                  }
+                : {
+                    id: partnerData?.id || partnerId,
+                    name: partnerData?.name || "알수없음",
+                    age: partnerData?.age || 0,
+                    occupation: partnerData?.occupation || "",
+                  },
+          };
+
+          matchesWithUserDetails.push(match);
+
+          console.log(`🎯 매칭 ${item.id} 처리 완료:`, {
+            matchScore: match.matchScore,
+            user1_name: match.user1?.name,
+            user2_name: match.user2?.name,
+            common_interests_count: match.commonInterests?.tags?.length || 0,
+          });
+        } catch (itemError) {
+          console.error(`❌ 매칭 항목 처리 에러 (ID: ${item.id}):`, itemError);
+          // 개별 매칭 에러는 무시하고 계속 진행
+        }
+      }
+
+      console.log("🎉 매칭 데이터 처리 완료:", {
+        총매칭수: matchesWithUserDetails.length,
+        매칭점수들: matchesWithUserDetails.map((m) => m.matchScore),
+      });
+
+      return matchesWithUserDetails;
+    } catch (error) {
+      console.error("❌ getUserMatches 전체 에러:", error);
+      return [];
+    }
   },
 
   async updateAiInsights(matchId, insights): Promise<void> {
