@@ -6,7 +6,21 @@ import type {
   UserResponse,
 } from "@/shared/types/domain";
 import type { SurveyRepo } from "@/core/repositories/SurveyRepo";
-import { supabase } from "@/lib/supabase";
+
+// 환경에 따라 적절한 Supabase 클라이언트 선택
+const getSupabaseClient = () => {
+  if (typeof window === "undefined") {
+    // 서버 환경 (API Routes, Server Components)
+    const { supabaseServer } = require("@/lib/supabase-server");
+    return supabaseServer;
+  } else {
+    // 클라이언트 환경 (Browser)
+    const { supabase } = require("@/lib/supabase");
+    return supabase;
+  }
+};
+
+const supabase = getSupabaseClient();
 
 export const supabaseSurveyRepo: SurveyRepo = {
   async getTemplateIdList(): Promise<string[]> {

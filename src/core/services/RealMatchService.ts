@@ -83,9 +83,11 @@ export async function calculateRealMatch(
           answer: optionMap.get(response.optionId)?.text || "알 수 없음",
         }));
 
-        // AI 의미적 유사성 분석 호출
+        // AI 의미적 유사성 분석 호출 (서버 환경에서는 절대 URL 필요)
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         const semanticResponse = await fetch(
-          "/api/analyze-semantic-similarity",
+          `${baseUrl}/api/analyze-semantic-similarity`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

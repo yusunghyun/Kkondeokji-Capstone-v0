@@ -21,6 +21,7 @@ interface MatchReportProps {
   user1Name?: string;
   user2Name?: string;
   partnerInterests?: string[]; // 상대방의 개별 관심사 추가
+  userId?: string; // 현재 사용자 ID 추가
 }
 
 export function MatchReport({
@@ -28,16 +29,54 @@ export function MatchReport({
   user1Name = "당신",
   user2Name = "상대방",
   partnerInterests = [], // 기본값 빈 배열
+  userId, // userId 추가
 }: MatchReportProps) {
   // 관심사 설문 다이얼로그 상태
   const [isSurveyDialogOpen, setIsSurveyDialogOpen] = useState(false);
 
-  // 관심사 설문 완료 처리
-  const handleSurveyComplete = (responses: any[]) => {
-    console.log("관심사 설문 완료:", responses);
-    setIsSurveyDialogOpen(false);
-    // 여기서 매칭 데이터를 업데이트하거나 새로고침할 수 있습니다
-    // 실제 구현에서는 API를 호출하여 매칭 점수를 재계산할 수 있습니다
+  // 관심사 설문 완료 처리 - DB에 저장
+  const handleSurveyComplete = async (responses: any[]) => {
+    console.log("✅ 관심사 설문 완료:", responses);
+
+    if (!userId) {
+      console.error("❌ 사용자 ID가 없습니다");
+      alert("사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.");
+      return;
+    }
+
+    try {
+      // 1. 응답을 user_responses 형식으로 변환
+      const formattedResponses = responses.map((r: any) => ({
+        question: r.question,
+        answer: r.answer,
+        category: r.category, // 상대방의 실제 관심사
+      }));
+
+      // 2. DB에 저장 (API Route 호출)
+      const response = await fetch("/api/save-survey-responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userId, // userId 전달
+          responses: formattedResponses,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("설문 응답 저장 실패");
+      }
+
+      console.log("✅ 설문 응답 DB 저장 완료");
+      setIsSurveyDialogOpen(false);
+
+      // 3. 사용자에게 새로고침 유도
+      alert(
+        "설문이 완료되었습니다! '매칭 새로고침' 버튼을 눌러 업데이트된 매칭 결과를 확인하세요!"
+      );
+    } catch (error) {
+      console.error("❌ 설문 응답 저장 실패:", error);
+      alert("설문 응답 저장에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -125,21 +164,49 @@ export function MatchReport({
         </CardContent>
       </Card>
 
-      {/* AI 인사이트 카드 - 시각적 개선 */}
+      {/* AI 인사이트 카드 - 깔끔하게 개선 */}
       {matchResult.aiInsights && (
-        <Card className="border-yellow-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50">
+        <Card className="border-purple-200 shadow-lg bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-yellow-500 animate-spin" />
-              AI 분석 결과
-              <Star className="h-4 w-4 text-yellow-400" />
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              🤖 AI 매칭 인사이트
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-4">
-            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl border-l-4 border-yellow-400 shadow-sm">
-              <p className="text-gray-700 leading-relaxed text-base font-medium">
-                {matchResult.aiInsights}
-              </p>
+          <CardContent>
+            {/* AI 인사이트를 문장 단위로 분리하여 카드로 표시 */}
+            <div className="space-y-3">
+              {matchResult.aiInsights
+                .split(/[.!?]\s+/)
+                .filter((s) => s.trim())
+                .slice(0, 4)
+                .map((sentence, index) => {
+                  const trimmed = sentence.trim();
+                  if (!trimmed) return null;
+
+                  // 이모지와 아이콘 매핑
+                  const icons = ["💡", "🎯", "✨", "💬"];
+                  const colors = [
+                    "from-purple-50 to-pink-50 border-purple-300",
+                    "from-blue-50 to-indigo-50 border-blue-300",
+                    "from-green-50 to-emerald-50 border-green-300",
+                    "from-orange-50 to-yellow-50 border-orange-300",
+                  ];
+
+                  return (
+                    <div
+                      key={index}
+                      className={`bg-gradient-to-r ${
+                        colors[index % 4]
+                      } p-4 rounded-lg border-l-4 shadow-sm hover:shadow-md transition-all`}
+                    >
+                      <p className="text-gray-800 text-sm leading-relaxed flex items-start gap-2">
+                        <span className="text-lg">{icons[index % 4]}</span>
+                        <span className="flex-1">{trimmed}.</span>
+                      </p>
+                    </div>
+                  );
+                })}
             </div>
           </CardContent>
         </Card>

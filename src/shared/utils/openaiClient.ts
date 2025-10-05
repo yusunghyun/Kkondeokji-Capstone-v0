@@ -79,11 +79,16 @@ export async function generatePersonalizedMatchInsights(
   user1Name?: string,
   user2Name?: string
 ): Promise<string> {
-  console.log("🤖 클라이언트에서 매치 인사이트 생성 API 호출");
+  console.log("🤖 매치 인사이트 생성 API 호출");
 
   try {
-    // 내부 API Route 호출 (보안 안전)
-    const response = await fetch("/api/generate-match-insights", {
+    // 서버 환경에서는 절대 URL, 클라이언트에서는 상대 URL 사용
+    const baseUrl =
+      typeof window === "undefined"
+        ? process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        : "";
+
+    const response = await fetch(`${baseUrl}/api/generate-match-insights`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -160,6 +160,17 @@ export default function MatchReportPage() {
       // 진행률 100%로 설정
       setRecalculateProgress(100);
 
+      // 새로운 matchId로 URL 업데이트 (기록 남기지 않고 교체)
+      if (result.matchId && result.matchId !== params.id) {
+        console.log("🔄 새로운 매칭 ID로 URL 업데이트:", result.matchId);
+        window.history.replaceState(
+          null,
+          "",
+          `/match/report/${result.matchId}`
+        );
+        params.id = result.matchId; // params 업데이트
+      }
+
       // 잠시 후 데이터 새로고침
       setTimeout(async () => {
         await loadMatchReport();
@@ -438,6 +449,7 @@ export default function MatchReportPage() {
           user1Name={myName}
           user2Name={otherUser?.name || "상대방"}
           partnerInterests={otherUserInterests}
+          userId={user?.id} // userId 전달
         />
       </div>
 

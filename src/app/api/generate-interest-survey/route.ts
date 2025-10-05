@@ -35,38 +35,30 @@ export async function POST(request: NextRequest) {
       길이: partnerInterests?.length || 0,
     });
 
-    const prompt = `당신은 한국의 젊은 세대를 위한 매칭 전문가입니다. ${partnerName}님${
-      partnerInterests && partnerInterests.length > 0
-        ? "의 관심사를 바탕으로"
-        : "과 대화할 수 있는"
-    } ${currentUserName}님이 답할 수 있는 간단하고 재미있는 설문 3-4개를 만들어주세요.
+    const prompt = `당신은 매칭 전문가입니다. ${partnerName}님의 관심사를 ${currentUserName}님에게 **직접적으로** 물어보는 설문 3-5개를 만들어주세요.
 
-**${partnerName}님의 주요 관심사:**
+**중요: 반드시 ${partnerName}님의 관심사를 그대로 질문에 넣어야 합니다!**
+
+**${partnerName}님의 관심사:**
 ${interestsText}
 
-**설문 생성 가이드라인:**
+**설문 생성 규칙:**
 
-1. **질문 유형별 접근**:
-   ${
-     partnerInterests && partnerInterests.length > 0
-       ? `- 각 관심사에 대한 ${currentUserName}님의 경험이나 선호도 확인
-   - 너무 깊거나 어렵지 않은 가벼운 질문들
-   - 대화로 이어질 수 있는 열린 질문들`
-       : `- 일반적인 취미, 여가활동에 대한 선호도 확인
-   - 성격이나 라이프스타일에 대한 가벼운 질문들
-   - ${partnerName}님과 공통점을 찾을 수 있는 질문들`
-   }
+1. **직접적인 질문 (필수)**:
+   - ❌ 나쁜 예: "${partnerName}님이 좋아하는 활동에 대해 어떻게 생각하세요?"
+   - ✅ 좋은 예: "${partnerName}님이 좋아하는 '논문 리뷰'를 해본 적 있나요?"
+   - ✅ 좋은 예: "'러닝'을 얼마나 자주 하시나요?"
+   - ✅ 좋은 예: "'EDM 페스티벌'에 가본 적 있나요?"
+   
+2. **category는 반드시 ${partnerName}님의 실제 관심사 단어를 사용**:
+   - ❌ 나쁜 예: category: "운동"
+   - ✅ 좋은 예: category: "러닝"
+   - ✅ 좋은 예: category: "논문 리뷰"
 
-2. **질문 형태**:
-   - 선호도 질문: "○○에 대해 어떻게 생각하세요?"
-   - 경험 질문: "○○을 해본 적이 있나요?"
-   - 선택형 질문: "○○ vs ○○ 중에서 선택한다면?"
-   - 성향 질문: "평소 ○○을 할 때 어떤 스타일인가요?"
-
-3. **답변 옵션**:
-   - 각 질문마다 4개의 선택지
-   - 자연스럽고 다양한 답변 옵션
-   - "관심 없음"도 부담스럽지 않게 포함
+3. **답변 옵션 (필수)**:
+   - 경험/빈도: ["자주 해요", "가끔 해요", "해본 적 있어요", "관심 없어요"]
+   - 선호도: ["매우 좋아해요", "좋아해요", "보통이에요", "별로예요"]
+   - Yes/No: ["네, 관심있어요", "한 번 해보고 싶어요", "잘 모르겠어요", "별로예요"]
 
 **출력 형식 (JSON):**
 {
@@ -110,7 +102,22 @@ ${
     console.log("✅ AI 관심사 설문 생성 완료!");
 
     try {
-      const result = JSON.parse(text.trim());
+      // AI 응답에서 ```json ... ``` 마크다운 제거
+      let cleanedText = text.trim();
+
+      // ```json으로 시작하면 제거
+      if (cleanedText.startsWith("```json")) {
+        cleanedText = cleanedText.slice(7); // '```json' 제거
+      } else if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.slice(3); // '```' 제거
+      }
+
+      // 끝의 ``` 제거
+      if (cleanedText.endsWith("```")) {
+        cleanedText = cleanedText.slice(0, -3);
+      }
+
+      const result = JSON.parse(cleanedText.trim());
 
       // 결과 검증
       if (!result.surveyQuestions || !Array.isArray(result.surveyQuestions)) {
