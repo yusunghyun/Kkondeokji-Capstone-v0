@@ -266,4 +266,31 @@ export const supabaseSurveyRepo: SurveyRepo = {
       createdAt: new Date(item.created_at),
     }));
   },
+
+  // 🔍 사용자의 모든 설문 기록 조회 메서드 구현
+  async getUserSurveys(userId: string): Promise<UserSurvey[]> {
+    console.log("🔍 SupabaseSurveyRepo getUserSurveys 시작 - userId:", userId);
+
+    const { data, error } = await supabase
+      .from("user_surveys")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("❌ 사용자 설문 기록 조회 에러:", error);
+      return [];
+    }
+
+    console.log("✅ 사용자 설문 기록 조회 완료:", data?.length || 0, "개");
+
+    return data.map((item) => ({
+      id: item.id,
+      userId: item.user_id,
+      surveyTemplateId: item.survey_template_id,
+      completed: item.completed,
+      createdAt: new Date(item.created_at),
+      completedAt: item.completed_at ? new Date(item.completed_at) : null,
+    }));
+  },
 };

@@ -3,10 +3,11 @@ export type InterestTag = string;
 export interface User {
   id: string;
   name: string | null;
+  email: string | null;
   age: number | null;
   occupation: string | null;
-  // createdAt: Date
-  // updatedAt: Date
+  createdAt: Date;
+  updatedAt: Date | null;
 }
 
 export interface SurveyTemplate {

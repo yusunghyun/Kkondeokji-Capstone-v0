@@ -1,21 +1,45 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Progress } from "@/shared/ui/progress";
-import { Heart, Sparkles, MessageCircle, Users, Star } from "lucide-react";
+import { Button } from "@/shared/ui/button";
+import {
+  Heart,
+  Sparkles,
+  MessageCircle,
+  Users,
+  Star,
+  Target,
+  Lightbulb,
+} from "lucide-react";
 import { TagChip } from "@/features/profile/components/tag-chip";
+import { InterestSurveyDialog } from "./interest-survey-dialog";
+import { useState } from "react";
 import type { MatchResult } from "@/shared/types/domain";
 
 interface MatchReportProps {
   matchResult: MatchResult;
   user1Name?: string;
   user2Name?: string;
+  partnerInterests?: string[]; // 상대방의 개별 관심사 추가
 }
 
 export function MatchReport({
   matchResult,
   user1Name = "당신",
   user2Name = "상대방",
+  partnerInterests = [], // 기본값 빈 배열
 }: MatchReportProps) {
+  // 관심사 설문 다이얼로그 상태
+  const [isSurveyDialogOpen, setIsSurveyDialogOpen] = useState(false);
+
+  // 관심사 설문 완료 처리
+  const handleSurveyComplete = (responses: any[]) => {
+    console.log("관심사 설문 완료:", responses);
+    setIsSurveyDialogOpen(false);
+    // 여기서 매칭 데이터를 업데이트하거나 새로고침할 수 있습니다
+    // 실제 구현에서는 API를 호출하여 매칭 점수를 재계산할 수 있습니다
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-pink-600";
     if (score >= 60) return "text-purple-600";
@@ -275,6 +299,135 @@ export function MatchReport({
           </div>
         </CardContent>
       </Card>
+
+      {/* 🎯 관심사 설문 카드 */}
+      <Card className="bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-lg">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-lg font-bold text-emerald-800 flex items-center justify-center gap-2">
+            <Target className="text-emerald-600" size={20} />
+            {user2Name}님 관심사 더 알아보기
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="text-center space-y-4">
+            {/* 설명 */}
+            <div className="space-y-2">
+              <div className="p-4 bg-white/80 backdrop-blur-sm rounded-xl border border-emerald-200 shadow-sm">
+                <p className="text-sm text-emerald-800 font-medium mb-2">
+                  <Lightbulb className="inline mr-2" size={16} />더 많은
+                  공통점을 찾아보세요!
+                </p>
+                <p className="text-sm text-gray-700">
+                  {partnerInterests.length > 0
+                    ? `${user2Name}님의 관심사를 바탕으로 맞춤 질문을 만들어드려요. 이 설문을 통해 새로운 공통점을 발견하고 더 좋은 매칭 점수를 얻을 수 있어요!`
+                    : `${user2Name}님과 관련된 질문을 만들어드려요. 공통 관심사를 바탕으로 더 깊은 대화 주제를 찾아보세요!`}
+                </p>
+              </div>
+
+              {/* 관심사 미리보기 */}
+              {(partnerInterests.length > 0 ||
+                (matchResult.commonTags &&
+                  matchResult.commonTags.length > 0)) && (
+                <div className="space-y-2">
+                  <p className="text-xs text-emerald-600 font-medium">
+                    {partnerInterests.length > 0
+                      ? `${user2Name}님의 관심사:`
+                      : "공통 관심사:"}
+                  </p>
+                  <div className="flex flex-wrap gap-1 justify-center">
+                    {/* 상대방 개별 관심사 우선 표시 */}
+                    {partnerInterests.length > 0 ? (
+                      <>
+                        {partnerInterests.slice(0, 4).map((interest, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs bg-white/80 border-emerald-200 text-emerald-700"
+                          >
+                            {interest}
+                          </Badge>
+                        ))}
+                        {partnerInterests.length > 4 && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-white/80 border-emerald-200 text-emerald-700"
+                          >
+                            +{partnerInterests.length - 4}개 더
+                          </Badge>
+                        )}
+                      </>
+                    ) : (
+                      /* 폴백: 공통 관심사 표시 */
+                      <>
+                        {matchResult.commonTags
+                          .slice(0, 4)
+                          .map((interest, index) => (
+                            <Badge
+                              key={index}
+                              variant="outline"
+                              className="text-xs bg-white/80 border-emerald-200 text-emerald-700"
+                            >
+                              {interest}
+                            </Badge>
+                          ))}
+                        {matchResult.commonTags.length > 4 && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-white/80 border-emerald-200 text-emerald-700"
+                          >
+                            +{matchResult.commonTags.length - 4}개 더
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 관심사가 전혀 없을 때 안내 */}
+              {partnerInterests.length === 0 &&
+                (!matchResult.commonTags ||
+                  matchResult.commonTags.length === 0) && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-xs text-yellow-800">
+                      💡 {user2Name}님의 관심사 정보가 부족해도 괜찮아요! 기본
+                      질문을 통해 서로를 더 알아가는 기회를 만들어드릴게요.
+                    </p>
+                  </div>
+                )}
+            </div>
+
+            {/* 시작 버튼 */}
+            <Button
+              onClick={() => setIsSurveyDialogOpen(true)}
+              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-medium py-3 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <Target className="mr-2" size={16} />
+              {partnerInterests.length > 0
+                ? `${user2Name}님 관심사 설문 시작하기`
+                : `${user2Name}님과 대화 주제 찾기`}
+            </Button>
+
+            <p className="text-xs text-gray-500 mt-2">
+              3-4개의 간단한 질문으로 새로운 공통점을 찾아보세요 ✨
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 관심사 설문 다이얼로그 */}
+      <InterestSurveyDialog
+        isOpen={isSurveyDialogOpen}
+        onClose={() => setIsSurveyDialogOpen(false)}
+        partnerName={user2Name}
+        partnerInterests={
+          partnerInterests.length > 0
+            ? partnerInterests
+            : matchResult.commonTags || []
+        }
+        currentUserName={user1Name}
+        onSurveyComplete={handleSurveyComplete}
+      />
     </div>
   );
 }

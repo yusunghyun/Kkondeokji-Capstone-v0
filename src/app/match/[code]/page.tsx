@@ -53,11 +53,11 @@ export default function MatchPage() {
 
         // QR 코드로 찾지 못하면 직접 ID로 검색
         if (!qrUser) {
-          const userData = await getUserRepo().getById(params.code);
-          if (userData) {
+          const userProfile = await getUserRepo().getProfile(params.code);
+          if (userProfile) {
             qrUser = {
-              userId: userData.id,
-              userName: userData.name,
+              userId: userProfile.id,
+              userName: userProfile.name,
             };
           }
         }

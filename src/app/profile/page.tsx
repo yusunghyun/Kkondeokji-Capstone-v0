@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -10,12 +10,11 @@ import {
   User,
   LogOut,
   Heart,
-  Calendar,
-  Share2,
-  TrendingUp,
   Users,
-  MessageCircle,
-  Sparkles,
+  Search,
+  Mail,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
 import { useUserStore } from "@/shared/store/userStore";
 import { useQRCodeStore } from "@/shared/store/qrCodeStore";
@@ -24,208 +23,108 @@ import { QRCodeDisplay } from "@/features/profile/components/qr-code-display";
 import { MatchNoteDialog } from "@/features/match/components/match-note-dialog";
 import { LoadingScreen } from "@/features/survey/components/loading-screen";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMatchRepo } from "@/core/infra/RepositoryFactory";
+import { getMatchRepo, getUserRepo } from "@/core/infra/RepositoryFactory";
 import { translateInterest } from "@/shared/utils/interestTranslation";
-import { supabase } from "@/lib/supabase";
 import type { Match } from "@/shared/types/domain";
 import Link from "next/link";
 import { Input } from "@/shared/ui/input";
 import { Badge } from "@/shared/ui/badge";
 
-// 관심사별 대화 주제 매핑
-const conversationStarters: Record<string, string[]> = {
-  reality_show: [
-    "가장 인상 깊었던 출연자는 누구였나요?",
-    "리얼리티쇼에서 배운 인생 교훈이 있다면?",
-    "다음에 보고 싶은 시즌은?",
-  ],
-  running: [
-    "좋아하는 러닝 코스가 있나요?",
-    "마라톤 도전해보셨나요?",
-    "러닝할 때 듣는 음악 추천해주세요!",
-  ],
-  songpa: [
-    "송파구의 숨은 맛집을 알고 계신가요?",
-    "잠실 주변에서 좋아하는 장소가 있나요?",
-    "롯데타워 전망대 가보셨어요?",
-  ],
-  self_development: [
-    "최근에 읽은 자기계발서 중 추천하고 싶은 책은?",
-    "개인적인 성장을 위해 실천하고 있는 습관이 있나요?",
-    "인생을 바꾼 한 권의 책이 있다면?",
-  ],
-};
+// 사용자 검색 결과 타입
+interface SearchResult {
+  id: string;
+  name: string;
+  email: string;
+  age: number | null;
+  occupation: string | null;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { currentUser, profile, fetchProfile } = useUserStore();
   const { user, signOut } = useAuth();
-  const { userQRCode, generateQRCode } = useQRCodeStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const { profile, fetchProfile, isLoading } = useUserStore();
+  const { generateQRCode, userQRCode, fetchQRCode } = useQRCodeStore();
+
   const [matches, setMatches] = useState<Match[]>([]);
-  const [matchNotes, setMatchNotes] = useState<Record<string, string>>({});
-  const [userId, setUserId] = useState("");
-  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
 
-  // 관심사 통계 계산 (메모화)
-  const interestStats = useMemo(() => {
-    if (!profile?.interests || profile.interests.length === 0) return null;
+  // 🔍 사용자 검색 관련 상태
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-    const totalInterests = profile.interests.length;
-    const categories = {
-      media: 0,
-      sports: 0,
-      culture: 0,
-      tech: 0,
-      lifestyle: 0,
-    };
-
-    profile.interests.forEach((interest) => {
-      const lower = interest.toLowerCase();
-      if (
-        lower.includes("show") ||
-        lower.includes("drama") ||
-        lower.includes("netflix")
-      ) {
-        categories.media++;
-      } else if (
-        lower.includes("running") ||
-        lower.includes("gym") ||
-        lower.includes("sport")
-      ) {
-        categories.sports++;
-      } else if (
-        lower.includes("book") ||
-        lower.includes("culture") ||
-        lower.includes("art")
-      ) {
-        categories.culture++;
-      } else if (
-        lower.includes("figma") ||
-        lower.includes("notion") ||
-        lower.includes("tech")
-      ) {
-        categories.tech++;
-      } else {
-        categories.lifestyle++;
-      }
-    });
-
-    return { totalInterests, categories };
-  }, [profile?.interests]);
-
-  // 대화 주제 제안 생성
-  const conversationTopics = useMemo(() => {
-    if (!profile?.interests) return [];
-
-    const topics: string[] = [];
-    profile.interests.forEach((interest) => {
-      const starters = conversationStarters[interest];
-      if (starters) {
-        topics.push(...starters.slice(0, 1)); // 각 관심사에서 1개씩
-      }
-    });
-
-    return topics.slice(0, 5); // 최대 5개
-  }, [profile?.interests]);
-
-  // 프로필 초기화 최적화
-  const initProfile = useCallback(async () => {
-    if (!user) return;
-
-    const loadingTimeout = setTimeout(() => {
-      console.log("프로필 로딩 타임아웃 - 강제 완료");
-      setIsLoading(false);
-    }, 3000); // 5초에서 3초로 단축
-
-    try {
-      console.log("프로필 페이지 초기화 시작:", user.id);
-
-      // 병렬로 데이터 로드
-      const [profileData, qrCode, userMatches] = await Promise.all([
-        fetchProfile(user.id),
-        useQRCodeStore
-          .getState()
-          .fetchQRCode(user.id)
-          .catch(() => null),
-        getMatchRepo()
-          .getUserMatches(user.id)
-          .catch(() => []),
-      ]);
-
-      console.log("프로필 데이터 로드 완료:", profileData);
-
-      // QR 코드가 없으면 생성
-      if (!qrCode) {
-        console.log("QR 코드 생성 시작");
-        await generateQRCode(user.id);
-      }
-
-      setMatches(userMatches);
-
-      // 매칭 노트 로드
-      if (userMatches.length > 0) {
-        await loadMatchNotes(userMatches);
-      }
-    } catch (error) {
-      console.error("Error initializing profile:", error);
-    } finally {
-      clearTimeout(loadingTimeout);
-      setIsLoading(false);
-      console.log("프로필 페이지 초기화 완료");
-    }
-  }, [fetchProfile, generateQRCode, user]);
-
-  // 매칭 노트 로드 함수
-  const loadMatchNotes = async (matches: Match[]) => {
-    if (!user) return;
-
-    try {
-      const matchIds = matches.map((match) => match.id);
-
-      const { data: notesData, error } = await (supabase as any)
-        .from("match_notes")
-        .select("match_id, note")
-        .eq("user_id", user.id)
-        .in("match_id", matchIds);
-
-      if (error) {
-        console.error("Error loading match notes:", error);
+  // 🔍 실시간 사용자 검색
+  const searchUsers = useCallback(
+    async (query: string) => {
+      if (!query || query.trim().length < 2) {
+        setSearchResults([]);
         return;
       }
 
-      const notesMap: Record<string, string> = {};
-      notesData?.forEach((noteData: any) => {
-        notesMap[noteData.match_id] = noteData.note;
-      });
+      setIsSearching(true);
+      try {
+        console.log("🔍 사용자 검색 시작:", query);
+        const userRepo = getUserRepo();
+        const results = await userRepo.searchUsers(query.trim());
 
-      setMatchNotes(notesMap);
-    } catch (error) {
-      console.error("Error loading match notes:", error);
-    }
-  };
+        // 자기 자신은 제외
+        const filteredResults = results.filter(
+          (result) => result.id !== user?.id
+        );
 
-  // 매칭 노트 업데이트 핸들러
-  const handleNoteUpdate = (matchId: string, note: string | null) => {
-    setMatchNotes((prev) => {
-      const updated = { ...prev };
-      if (note === null) {
-        delete updated[matchId];
-      } else {
-        updated[matchId] = note;
+        setSearchResults(filteredResults);
+        console.log("✅ 검색 완료:", filteredResults.length, "명 발견");
+      } catch (error) {
+        console.error("❌ 사용자 검색 실패:", error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
       }
-      return updated;
-    });
-  };
+    },
+    [user?.id]
+  );
 
+  // 🎯 검색어 변경 핸들러 (디바운스 적용)
   useEffect(() => {
-    initProfile();
-  }, [initProfile]);
+    const delayedSearch = setTimeout(() => {
+      searchUsers(searchQuery);
+    }, 300); // 300ms 디바운스
 
-  const handleConnect = useCallback(() => {
-    if (!userId.trim()) return;
-    router.push(`/match/${userId.trim()}`);
-  }, [userId, router]);
+    return () => clearTimeout(delayedSearch);
+  }, [searchQuery, searchUsers]);
+
+  // 🚀 사용자 연결
+  const handleConnectUser = useCallback(
+    (selectedUser: SearchResult) => {
+      console.log("🔗 사용자 연결:", selectedUser);
+      router.push(`/match/${selectedUser.id}`);
+    },
+    [router]
+  );
+
+  // 🎯 매칭 기록 로드
+  const loadMatches = useCallback(async () => {
+    if (!user) return;
+
+    setIsLoadingMatches(true);
+    try {
+      const userMatches = await getMatchRepo().getUserMatches(user.id);
+      setMatches(userMatches);
+    } catch (error) {
+      console.error("매칭 기록 로드 실패:", error);
+    } finally {
+      setIsLoadingMatches(false);
+    }
+  }, [user]);
+
+  // 초기화
+  useEffect(() => {
+    if (user) {
+      fetchProfile(user.id);
+      fetchQRCode(user.id);
+      loadMatches();
+    }
+  }, [user, fetchProfile, fetchQRCode, loadMatches]);
 
   const handleShare = useCallback(() => {
     if (!userQRCode) return;
@@ -262,162 +161,58 @@ export default function ProfilePage() {
         </Button>
       </nav>
 
-      <div className="flex-1 p-4 max-w-4xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">내 프로필</h1>
-          <Button
-            onClick={() => router.push("/")}
-            className="bg-primary-500 hover:bg-primary-600"
-          >
-            새로운 설문하기
-          </Button>
-        </div>
-
+      <main className="flex-1 container mx-auto p-4 max-w-4xl">
         <Card className="mb-6">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center">
-                <User className="mr-2 h-5 w-5 text-primary-500" />
-                {profile.name || "사용자"}
-              </div>
-              {profile.interests && profile.interests.length > 0 && (
-                <Badge variant="secondary" className="ml-auto">
-                  {profile.interests.length}개 관심사
-                </Badge>
-              )}
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <User className="h-6 w-6" />
+              {profile.name || "사용자"}님의 프로필
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {profile.age && (
-                <div>
-                  <span className="text-sm text-gray-500">나이:</span>{" "}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
                   {profile.age}세
                 </div>
-              )}
-
-              {profile.occupation && (
-                <div>
-                  <span className="text-sm text-gray-500">직업:</span>{" "}
+                <div className="text-sm text-gray-600">나이</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
                   {profile.occupation}
                 </div>
-              )}
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">관심사:</span>
-                  {profile.interests.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setShowAdvancedFeatures(!showAdvancedFeatures)
-                      }
-                      className="text-xs"
-                    >
-                      <Sparkles className="mr-1 h-3 w-3" />
-                      {showAdvancedFeatures ? "간단히 보기" : "모두 보기"}
-                    </Button>
-                  )}
-                </div>
-                {profile.interests.length > 0 ? (
-                  <div
-                    className={`flex flex-wrap gap-2 transition-all duration-300 ${
-                      showAdvancedFeatures ? "max-h-none" : "max-h-24"
-                    } overflow-hidden`}
-                  >
-                    {(() => {
-                      const maxTags = showAdvancedFeatures
-                        ? profile.interests.length
-                        : 6;
-                      const tags = profile.interests;
-                      const displayTags = tags.slice(0, maxTags);
-                      const remaining = tags.length - maxTags;
-                      return (
-                        <>
-                          {displayTags.map((tag, idx) => (
-                            <TagChip
-                              key={idx}
-                              label={translateInterest(tag)} // 언더스코어를 공백으로 변환
-                              className="text-xs"
-                            />
-                          ))}
-                          {!showAdvancedFeatures && remaining > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setShowAdvancedFeatures(true)}
-                              className="h-7 px-3 text-xs border border-dashed border-gray-300 hover:border-gray-400 text-gray-500 hover:text-gray-700 rounded-full"
-                            >
-                              +{remaining}개 더보기
-                            </Button>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-400">
-                    <p className="mb-2">아직 관심사가 없습니다</p>
-                    <p className="text-sm">
-                      설문을 진행하면 당신의 관심사를 찾아드려요!
-                    </p>
-                    <Button
-                      onClick={() => router.push("/")}
-                      size="sm"
-                      className="mt-3"
-                    >
-                      첫 설문 시작하기
-                    </Button>
-                  </div>
-                )}
+                <div className="text-sm text-gray-600">직업</div>
               </div>
-
-              {/* 관심사 통계 */}
-              {showAdvancedFeatures && interestStats && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-                  <div className="flex items-center mb-2">
-                    <TrendingUp className="mr-2 h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">
-                      관심사 분석
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>미디어: {interestStats.categories.media}개</div>
-                    <div>스포츠: {interestStats.categories.sports}개</div>
-                    <div>문화: {interestStats.categories.culture}개</div>
-                    <div>기술: {interestStats.categories.tech}개</div>
-                  </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {profile.interests?.length || 0}
                 </div>
-              )}
-
-              {/* 대화 주제 제안 */}
-              {showAdvancedFeatures && conversationTopics.length > 0 && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg">
-                  <div className="flex items-center mb-2">
-                    <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">
-                      추천 대화 주제
-                    </span>
-                  </div>
-                  <div className="space-y-1 text-xs text-green-700">
-                    {conversationTopics.slice(0, 3).map((topic, idx) => (
-                      <div key={idx} className="text-xs">
-                        • {topic}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                <div className="text-sm text-gray-600">관심사</div>
+              </div>
             </div>
+
+            {profile.interests && profile.interests.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-3">내 관심사</h3>
+                <div className="flex flex-wrap gap-2">
+                  {profile.interests.map((interest, index) => (
+                    <TagChip
+                      key={index}
+                      label={translateInterest(interest)}
+                      size="md"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Tabs defaultValue="connect" className="flex-1">
           <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="connect">
-              <Users className="mr-1 h-4 w-4" />
-              연결하기
+              <Search className="mr-1 h-4 w-4" />
+              친구 찾기
             </TabsTrigger>
             <TabsTrigger value="qrcode">
               <QrCode className="mr-1 h-4 w-4" />
@@ -432,16 +227,112 @@ export default function ProfilePage() {
           <TabsContent value="connect" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>아이디로 연결하기</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-blue-500" />
+                  친구 찾기
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  이름 또는 이메일 아이디로 친구를 찾아서 바로 매칭해보세요!
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="상대방의 아이디를 입력하세요"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                  />
-                  <Button onClick={handleConnect}>연결</Button>
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="친구의 이름이나 이메일 아이디를 입력하세요 (예: 김철수, john123)"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 pr-4 py-3 text-base"
+                    />
+                  </div>
+
+                  {isSearching && (
+                    <div className="flex items-center justify-center py-4 text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      검색 중...
+                    </div>
+                  )}
+
+                  {searchResults.length > 0 && (
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                      {searchResults.map((result) => (
+                        <div
+                          key={result.id}
+                          className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all duration-200"
+                          onClick={() => handleConnectUser(result)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                              {result.name?.charAt(0)?.toUpperCase() || "?"}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {result.name || "익명"}
+                              </div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2">
+                                <Mail className="h-3 w-3" />
+                                {result.email?.split("@")[0] || "Unknown"}
+                                {result.age && (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span>{result.age}세</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" />
+                            연결
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchQuery.length > 0 &&
+                    !isSearching &&
+                    searchResults.length === 0 && (
+                      <div className="text-center py-6 text-gray-500">
+                        <Users className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm">
+                          "{searchQuery}"로 검색된 사용자가 없습니다
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          이름이나 이메일 아이디를 정확히 입력해주세요
+                        </p>
+                      </div>
+                    )}
+
+                  {searchQuery.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Search className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <h3 className="font-medium text-gray-700 mb-2">
+                        친구를 찾아보세요!
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        이름이나 이메일 아이디로 검색하면
+                        <br />
+                        바로 매칭을 시작할 수 있어요
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-blue-50 p-2 rounded-lg">
+                          <strong>이름 검색</strong>
+                          <br />
+                          김철수, 이영희
+                        </div>
+                        <div className="bg-green-50 p-2 rounded-lg">
+                          <strong>이메일 검색</strong>
+                          <br />
+                          john123, alice
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -468,238 +359,107 @@ export default function ProfilePage() {
             </Card>
 
             <Button
-              className="w-full bg-secondary-500 hover:bg-secondary-600"
-              onClick={() => router.push("/scan")}
+              onClick={handleShare}
+              disabled={!userQRCode}
+              className="w-full"
+              variant="outline"
             >
-              <QrCode className="mr-2 h-4 w-4" />
-              다른 사람 QR 스캔하기
-            </Button>
-
-            <Button className="w-full" onClick={handleShare}>
-              <Share2 className="mr-2 h-4 w-4" />내 링크 공유하기
+              링크 공유하기
             </Button>
           </TabsContent>
 
           <TabsContent value="matches" className="space-y-4">
-            {matches.length > 0 ? (
-              <div className="space-y-4">
-                {matches.map((match) => {
-                  // 상대방 ID 추출 (현재 사용자가 아닌 쪽)
-                  const partnerId =
-                    match.user1Id === user.id ? match.user2Id : match.user1Id;
-                  const partnerInfo =
-                    match.user1Id === user.id ? match.user2 : match.user1;
-                  const partnerName = partnerInfo?.name || "알 수 없음";
-
-                  const matchDate = new Date(
-                    match.createdAt
-                  ).toLocaleDateString("ko-KR", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  });
-
-                  const commonTags = match.commonInterests?.tags || [];
-                  const scoreColor =
-                    match.matchScore >= 80
-                      ? "from-pink-500 to-rose-400"
-                      : match.matchScore >= 60
-                      ? "from-purple-500 to-violet-400"
-                      : match.matchScore >= 40
-                      ? "from-blue-500 to-indigo-400"
-                      : "from-gray-500 to-slate-400";
-
-                  const getScoreText = (score: number) => {
-                    if (score >= 80) return "완벽한 매칭";
-                    if (score >= 60) return "좋은 매칭";
-                    if (score >= 40) return "괜찮은 매칭";
-                    return "기본 매칭";
-                  };
-
-                  return (
-                    <Card
-                      key={match.id}
-                      className={`cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-l-4 ${
-                        matchNotes[match.id]
-                          ? "border-l-purple-400 bg-purple-50/50"
-                          : "border-l-primary-400"
-                      }`}
-                      onClick={() => router.push(`/match/report/${match.id}`)}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                              <span className="text-indigo-600 font-bold">
-                                {partnerName}
-                              </span>
-                              님과의 매칭
-                              {matchNotes[match.id] && (
-                                <Badge
-                                  variant="secondary"
-                                  className="ml-2 text-xs"
-                                >
-                                  📝 노트 있음
-                                </Badge>
-                              )}
-                            </h3>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <Calendar className="h-4 w-4" />
-                              {matchDate}
-                              {partnerInfo?.age && (
-                                <>
-                                  <span className="mx-1">•</span>
-                                  <span>{partnerInfo.age}세</span>
-                                </>
-                              )}
-                              {partnerInfo?.occupation && (
-                                <>
-                                  <span className="mx-1">•</span>
-                                  <span>{partnerInfo.occupation}</span>
-                                </>
-                              )}
-                            </div>
+            {isLoadingMatches ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                매칭 기록을 불러오는 중...
+              </div>
+            ) : matches.length > 0 ? (
+              matches.map((match) => (
+                <Card key={match.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="text-3xl font-bold text-pink-500">
+                          {match.matchScore}%
+                        </div>
+                        <div>
+                          <div className="font-medium">
+                            {match.user1?.id === user.id
+                              ? match.user2?.name || "알수없음"
+                              : match.user1?.name || "알수없음"}
+                            님과의 매칭
                           </div>
-                          <div className="text-right">
-                            <div
-                              className="text-2xl font-bold mb-1"
-                              style={{
-                                color: scoreColor,
-                                background: `linear-gradient(135deg, ${scoreColor}20, ${scoreColor}10)`,
-                                padding: "4px 12px",
-                                borderRadius: "8px",
-                                border: `2px solid ${scoreColor}30`,
-                              }}
-                            >
-                              {match.matchScore}점
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {getScoreText(match.matchScore)}
-                            </div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(match.createdAt).toLocaleDateString()}
                           </div>
                         </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            router.push(`/match/report/${match.id}`)
+                          }
+                        >
+                          자세히 보기
+                        </Button>
+                        <MatchNoteDialog
+                          matchId={match.id}
+                          partnerName={
+                            match.user1?.id === user.id
+                              ? match.user2?.name || "상대방"
+                              : match.user1?.name || "상대방"
+                          }
+                          onNoteUpdate={() => {}}
+                        />
+                      </div>
+                    </div>
 
-                        {/* 노트 미리보기 */}
-                        {matchNotes[match.id] && (
-                          <div className="mb-4 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-200">
-                            <div className="flex items-start gap-2">
-                              <MessageCircle className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
-                              <p className="text-sm text-purple-700 line-clamp-2">
-                                {matchNotes[match.id]}
-                              </p>
-                            </div>
+                    {match.commonInterests?.tags &&
+                      match.commonInterests.tags.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-sm font-medium mb-2">
+                            공통 관심사
                           </div>
-                        )}
-
-                        {/* 공통 관심사 */}
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-                            <Heart className="h-4 w-4 text-red-500" />
-                            공통 관심사 ({commonTags.length}개)
-                          </h4>
                           <div className="flex flex-wrap gap-1">
-                            {commonTags.slice(0, 3).map((tag, idx) => (
-                              <TagChip
-                                key={idx}
-                                label={translateInterest(tag)}
-                                className="text-xs"
-                              />
-                            ))}
-                            {commonTags.length > 3 && (
+                            {match.commonInterests.tags
+                              .slice(0, 5)
+                              .map((tag, index) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {translateInterest(tag)}
+                                </Badge>
+                              ))}
+                            {match.commonInterests.tags.length > 5 && (
                               <Badge variant="outline" className="text-xs">
-                                +{commonTags.length - 3}개 더
+                                +{match.commonInterests.tags.length - 5}개 더
                               </Badge>
                             )}
                           </div>
                         </div>
-
-                        {/* AI 인사이트 미리보기 */}
-                        {match.aiInsights && (
-                          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                            <div className="flex items-start gap-2">
-                              <Sparkles className="h-4 w-4 text-blue-500 mt-1 flex-shrink-0" />
-                              <p className="text-sm text-blue-700 line-clamp-3">
-                                {match.aiInsights}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 액션 버튼들 */}
-                        <div
-                          className="flex gap-2 pt-3 border-t border-gray-100"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MatchNoteDialog
-                            matchId={match.id}
-                            partnerName={partnerName}
-                            initialNote={matchNotes[match.id] || ""}
-                            onNoteUpdate={(note) =>
-                              handleNoteUpdate(match.id, note)
-                            }
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/match/report/${match.id}`);
-                            }}
-                            className="flex items-center gap-2"
-                          >
-                            <TrendingUp className="h-4 w-4" />
-                            상세 리포트
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                      )}
+                  </CardContent>
+                </Card>
+              ))
             ) : (
-              <Card className="text-center py-12">
-                <CardContent>
-                  <div className="flex flex-col items-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <Heart className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      아직 매칭 기록이 없습니다
-                    </h3>
-                    <p className="text-gray-500 mb-6 max-w-sm">
-                      QR 코드를 공유하거나 다른 사람의 QR 코드를 스캔해서 첫
-                      매칭을 시작해보세요!
-                    </p>
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => router.push("/scan")}
-                        className="flex items-center gap-2"
-                      >
-                        <QrCode className="h-4 w-4" />
-                        QR 스캔하기
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          const tabs =
-                            document.querySelector('[role="tablist"]');
-                          const qrTab = tabs?.querySelector(
-                            '[value="qrcode"]'
-                          ) as HTMLElement;
-                          qrTab?.click();
-                        }}
-                        className="flex items-center gap-2"
-                      >
-                        <Share2 className="h-4 w-4" />내 QR 공유
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="text-center py-8 text-gray-500">
+                <Heart className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <h3 className="font-medium text-gray-700 mb-2">
+                  아직 매칭 기록이 없어요
+                </h3>
+                <p className="text-sm text-gray-500">
+                  QR 코드를 공유하거나 친구를 찾아서 첫 매칭을 시작해보세요!
+                </p>
+              </div>
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   );
 }

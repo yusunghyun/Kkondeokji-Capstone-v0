@@ -174,11 +174,7 @@ export async function generateEnhancedMatchReport(
       throw new Error("매칭을 찾을 수 없습니다");
     }
 
-    // 이미 향상된 AI 인사이트가 있으면 스킵
-    if (match.aiInsights && match.aiInsights.length > 200) {
-      console.log("이미 향상된 AI 리포트가 존재합니다");
-      return;
-    }
+    console.log("🔄 AI 기반 매치 리포트 재생성 시작");
 
     const commonInterests = match.commonInterests;
     if (!commonInterests) {
@@ -186,19 +182,31 @@ export async function generateEnhancedMatchReport(
       return;
     }
 
-    // AI를 사용해 향상된 매칭 분석 생성
-    const enhancedInsights = await generatePersonalizedMatchInsights({
-      score: match.matchScore,
-      commonTags: commonInterests.tags,
-      commonResponses: commonInterests.responses,
-    });
+    // 사용자 이름 추출
+    const user1Name = match.user1?.name || "사용자 1";
+    const user2Name = match.user2?.name || "사용자 2";
+
+    // 공통 응답을 개별 응답으로 변환 (동일한 응답이므로 두 사용자 모두 같은 응답)
+    const commonResponses = commonInterests.responses.map((response) => ({
+      question: response.question,
+      answer: response.answer,
+    }));
+
+    // AI를 사용해 향상된 매칭 분석 생성 (매번 새로운 인사이트)
+    const enhancedInsights = await generatePersonalizedMatchInsights(
+      commonResponses, // user1 응답 (공통 응답 사용)
+      commonResponses, // user2 응답 (공통 응답 사용)
+      match.matchScore, // 매칭 점수
+      user1Name, // 사용자 1 이름
+      user2Name // 사용자 2 이름
+    );
 
     // DB에 향상된 인사이트 저장
     await matchRepo.updateAiInsights(matchId, enhancedInsights);
 
-    console.log("향상된 매칭 리포트가 성공적으로 생성되었습니다");
+    console.log("✅ 향상된 매칭 리포트가 성공적으로 재생성되었습니다");
   } catch (error) {
-    console.error("향상된 매칭 리포트 생성 실패:", error);
+    console.error("❌ 향상된 매칭 리포트 생성 실패:", error);
     // 에러가 나도 기존 기능은 유지되도록 조용히 실패
   }
 }

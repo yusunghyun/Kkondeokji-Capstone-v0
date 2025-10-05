@@ -44,4 +44,7 @@ export interface SurveyRepo {
   completeUserSurvey(userSurveyId: string): Promise<void>;
 
   getUserResponses(userSurveyId: string): Promise<UserResponse[]>;
+
+  // 🔍 매칭을 위한 사용자 설문 조회 메서드 추가
+  getUserSurveys(userId: string): Promise<UserSurvey[]>;
 }

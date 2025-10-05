@@ -73,56 +73,45 @@ interface MatchInsightsInput {
 }
 
 export async function generatePersonalizedMatchInsights(
-  matchData: MatchInsightsInput
+  user1Responses: any[],
+  user2Responses: any[],
+  matchScore: number,
+  user1Name?: string,
+  user2Name?: string
 ): Promise<string> {
+  console.log("🤖 클라이언트에서 매치 인사이트 생성 API 호출");
+
   try {
-    const prompt = `당신은 연애 매칭 전문가입니다. 다음 매칭 정보를 바탕으로 두 사람의 궁합에 대한 자세한 분석을 한국어로 제공해주세요.
-
-매칭 점수: ${matchData.score}점 (100점 만점)
-공통 관심사: ${matchData.commonTags.join(", ")}
-공통 응답: 
-${matchData.commonResponses
-  .map((r) => `- 질문: ${r.question}\n  답변: ${r.answer}`)
-  .join("\n")}
-
-다음 형식으로 분석 결과를 작성해주세요:
-
-📊 **전체적인 매칭 평가**
-- 매칭 점수에 대한 종합적인 평가와 의미
-
-💕 **공통점 분석**
-- 공통 관심사가 관계에 미치는 긍정적 영향
-- 함께 할 수 있는 활동 제안
-
-🌟 **성장 가능성**
-- 서로를 통해 배울 수 있는 점
-- 관계 발전 방향성
-
-💬 **대화 주제 추천**
-- 공통 관심사를 바탕으로 한 구체적인 대화 주제 3-4개
-- 첫 만남에서 활용할 수 있는 아이스브레이커
-
-🎯 **데이트 아이디어**
-- 공통 관심사를 활용한 데이트 장소/활동 추천 2-3개
-
-�� **관계 조언**
-- 이 매칭에서 주의할 점이나 발전시킬 수 있는 방법
-
-따뜻하고 긍정적인 톤으로 작성하되, 현실적인 조언도 포함해주세요. 길이는 300-500자 정도로 작성해주세요.`;
-
-    const { text } = await generateText({
-      model: openai("gpt-3.5-turbo"),
-      prompt: `당신은 친근하고 전문적인 연애 상담가입니다. 매칭 분석을 통해 사람들이 더 나은 관계를 만들 수 있도록 도와주세요.\n\n${prompt}`,
-      maxTokens: 800,
-      temperature: 0.7,
+    // 내부 API Route 호출 (보안 안전)
+    const response = await fetch("/api/generate-match-insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user1Responses,
+        user2Responses,
+        matchScore,
+        user1Name,
+        user2Name,
+      }),
     });
 
-    return text;
-  } catch (error) {
-    console.error("Error generating match insights with OpenAI:", error);
+    if (!response.ok) {
+      throw new Error(`API 호출 실패: ${response.status}`);
+    }
 
-    // 폴백: 기본 매칭 분석 제공
-    return generateBasicMatchInsights(matchData);
+    const result = await response.json();
+
+    console.log("✅ 서버에서 매치 인사이트 생성 완료!");
+    return result.insights;
+  } catch (error) {
+    console.error("❌ 매치 인사이트 생성 API 호출 실패:", error);
+
+    // 최종 폴백: 기본 인사이트 반환
+    const fallbackInsight = `${user1Name || "당신"}님과 ${
+      user2Name || "상대방"
+    }님의 매칭 점수는 ${matchScore}점입니다. 서로 다른 관심사도 새로운 대화의 시작점이 될 수 있어요!`;
+
+    return fallbackInsight;
   }
 }
 
