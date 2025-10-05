@@ -90,16 +90,13 @@ export const supabaseMatchRepo: MatchRepo = {
   },
 
   async getUserMatches(userId: string): Promise<Match[]> {
-    console.log("🔍 SupabaseMatchRepo getUserMatches 시작 - userId:", userId);
-
     if (!userId) {
-      console.error("❌ userId가 없습니다");
+      console.error("❌ getUserMatches: userId가 없습니다");
       return [];
     }
 
     try {
-      // 🎯 1단계: 기본 매칭 데이터 조회
-      console.log("📊 1단계: 매칭 데이터 조회 시작");
+      // 기본 매칭 데이터 조회
       const { data, error } = await supabase
         .from("matches")
         .select(
@@ -121,23 +118,11 @@ export const supabaseMatchRepo: MatchRepo = {
         throw error;
       }
 
-      console.log("📊 조회된 매칭 데이터:", {
-        총개수: data?.length || 0,
-        샘플:
-          data?.slice(0, 2)?.map((item) => ({
-            id: item.id,
-            user1_id: item.user1_id,
-            user2_id: item.user2_id,
-            match_score: item.match_score,
-          })) || [],
-      });
-
       if (!data || data.length === 0) {
-        console.log("📋 매칭 기록이 없습니다");
         return [];
       }
 
-      // 🎯 2단계: 상대방 사용자 정보 조회
+      // 상대방 사용자 정보 조회
       const matchesWithUserDetails: Match[] = [];
 
       for (const item of data) {
@@ -145,8 +130,6 @@ export const supabaseMatchRepo: MatchRepo = {
           // 상대방 ID 결정
           const partnerId =
             item.user1_id === userId ? item.user2_id : item.user1_id;
-
-          console.log(`👥 매칭 ${item.id}: 상대방 ID ${partnerId} 정보 조회`);
 
           // 상대방 사용자 정보 조회
           const { data: partnerData, error: partnerError } = await supabase
@@ -160,15 +143,7 @@ export const supabaseMatchRepo: MatchRepo = {
               `❌ 상대방 정보 조회 에러 (ID: ${partnerId}):`,
               partnerError
             );
-            // 에러가 있어도 기본 정보로 계속 진행
           }
-
-          console.log(`✅ 상대방 정보:`, {
-            id: partnerId,
-            name: partnerData?.name || "알수없음",
-            age: partnerData?.age,
-            occupation: partnerData?.occupation,
-          });
 
           // 현재 사용자 정보도 조회
           const { data: currentUserData, error: currentUserError } =
@@ -226,23 +201,11 @@ export const supabaseMatchRepo: MatchRepo = {
           };
 
           matchesWithUserDetails.push(match);
-
-          console.log(`🎯 매칭 ${item.id} 처리 완료:`, {
-            matchScore: match.matchScore,
-            user1_name: match.user1?.name,
-            user2_name: match.user2?.name,
-            common_interests_count: match.commonInterests?.tags?.length || 0,
-          });
         } catch (itemError) {
           console.error(`❌ 매칭 항목 처리 에러 (ID: ${item.id}):`, itemError);
           // 개별 매칭 에러는 무시하고 계속 진행
         }
       }
-
-      console.log("🎉 매칭 데이터 처리 완료:", {
-        총매칭수: matchesWithUserDetails.length,
-        매칭점수들: matchesWithUserDetails.map((m) => m.matchScore),
-      });
 
       return matchesWithUserDetails;
     } catch (error) {

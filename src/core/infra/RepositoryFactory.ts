@@ -3,12 +3,15 @@ import type { SurveyRepo } from "@/core/repositories/SurveyRepo";
 import type { MatchRepo } from "@/core/repositories/MatchRepo";
 import type { QRCodeRepo } from "@/core/repositories/QRCodeRepo";
 
-import { supabaseUserRepo } from "@/core/infra/SupabaseUserRepo";
+import {
+  SupabaseUserRepo,
+  supabaseUserRepo,
+} from "@/core/infra/SupabaseUserRepo";
 import { supabaseSurveyRepo } from "@/core/infra/SupabaseSurveyRepo";
 import { supabaseMatchRepo } from "@/core/infra/SupabaseMatchRepo";
 import { supabaseQRCodeRepo } from "@/core/infra/SupabaseQRCodeRepo";
 
-export const getUserRepo = (): UserRepo => {
+export const getUserRepo = (): SupabaseUserRepo => {
   return supabaseUserRepo;
 };
 

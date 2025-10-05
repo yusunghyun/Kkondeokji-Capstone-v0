@@ -117,14 +117,15 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  // 초기화
+  // 초기화 - 의존성 배열에서 함수들 제거하여 무한 루프 방지
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       fetchProfile(user.id);
       fetchQRCode(user.id);
       loadMatches();
     }
-  }, [user, fetchProfile, fetchQRCode, loadMatches]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // user.id만 의존성으로 사용
 
   const handleShare = useCallback(() => {
     if (!userQRCode) return;
