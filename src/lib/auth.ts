@@ -100,10 +100,29 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     console.log("🔍 현재 사용자 조회 시도");
 
-    // 타임아웃 추가 (5초)
+    // 브라우저 환경에서 localStorage에서 직접 확인 (타임아웃 방지)
+    if (typeof window !== "undefined") {
+      // 이미 로그인된 사용자 정보가 있는지 확인
+      const cachedUser = localStorage.getItem("auth_user");
+      if (cachedUser) {
+        try {
+          const parsedUser = JSON.parse(cachedUser);
+          if (parsedUser && parsedUser.id && parsedUser.email) {
+            console.log("✅ 캐시된 사용자 정보 사용:", parsedUser.id);
+            return parsedUser as AuthUser;
+          }
+        } catch (e) {
+          console.warn("캐시된 사용자 정보 파싱 실패:", e);
+          // 캐시 삭제
+          localStorage.removeItem("auth_user");
+        }
+      }
+    }
+
+    // 타임아웃 추가 (10초로 증가)
     const sessionPromise = supabase.auth.getSession();
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Session check timeout")), 5000)
+      setTimeout(() => reject(new Error("Session check timeout")), 10000)
     );
 
     const { data, error } = (await Promise.race([
@@ -127,6 +146,16 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       id: data.session.user.id,
       email: data.session.user.email || "",
     };
+
+    // 사용자 정보를 로컬 스토리지에 캐싱 (타임아웃 방지)
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("auth_user", JSON.stringify(authUser));
+        console.log("✅ 사용자 정보 캐싱 완료");
+      } catch (e) {
+        console.warn("사용자 정보 캐싱 실패:", e);
+      }
+    }
 
     console.log("✅ 현재 사용자:", authUser.id, authUser.email);
     return authUser;

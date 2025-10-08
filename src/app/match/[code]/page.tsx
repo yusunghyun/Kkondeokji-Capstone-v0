@@ -25,7 +25,6 @@ export default function MatchPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { profile } = useUserStore();
   const { currentMatch, calculateMatch, isLoading, error } = useMatchStore();
 
   const [pageState, setPageState] = useState<MatchPageState>("loading");
@@ -35,9 +34,19 @@ export default function MatchPage() {
   } | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
 
+  // 매칭 초기화 상태 추적
+  const [initStarted, setInitStarted] = useState(false);
+
   useEffect(() => {
     const initMatch = async () => {
       try {
+        // 이미 초기화가 시작된 경우 중복 실행 방지
+        if (initStarted) {
+          console.log("🔄 매칭 초기화가 이미 진행 중입니다");
+          return;
+        }
+
+        setInitStarted(true);
         setPageState("loading");
 
         // 1. 로그인 확인
@@ -48,6 +57,11 @@ export default function MatchPage() {
           );
           return;
         }
+
+        console.log("✅ 로그인 확인 완료:", {
+          userId: user.id,
+          email: user.email,
+        });
 
         // 2. QR 코드로 상대방 찾기
         let qrUser: { userId: string; userName: string | null } | null = null;
@@ -79,23 +93,48 @@ export default function MatchPage() {
 
         setScannedUser(qrUser);
 
-        // 3. 사용자 프로필 상태 확인
-        if (!profile || !profile.name) {
+        // 3. 사용자 프로필 상태 확인 (직접 API 호출로 최신 정보 확인)
+        console.log("🔍 프로필 상태 확인 시작");
+
+        // 캐시된 프로필 정보 대신 직접 API 호출로 최신 정보 확인
+        const userRepo = getUserRepo();
+        const freshProfile = await userRepo.getProfile(user.id);
+
+        console.log("🔍 최신 프로필 정보:", freshProfile);
+
+        if (!freshProfile || !freshProfile.name) {
+          console.log("⚠️ 프로필 정보 없음, 온보딩 필요");
           setPageState("new_user_onboarding");
           return;
         }
 
+        console.log("✅ 프로필 확인 완료:", {
+          name: freshProfile.name,
+          age: freshProfile.age,
+        });
+
         // 4. 설문 완료 상태 확인 - 실제 완료된 설문 확인
         try {
-          const surveyRepo = getUserRepo();
+          const { getSurveyRepo } = await import(
+            "@/core/infra/RepositoryFactory"
+          );
+          const surveyRepo = getSurveyRepo();
           const completedSurveys = await surveyRepo.getUserSurveys(user.id);
 
+          console.log("🔍 완료된 설문 확인:", {
+            userId: user.id,
+            surveysCount: completedSurveys.length,
+          });
+
           if (completedSurveys.length === 0) {
+            console.log("⚠️ 완료된 설문 없음, 설문 필요");
             setPageState("survey_needed");
             return;
           }
+
+          console.log("✅ 설문 완료 확인됨:", completedSurveys.length);
         } catch (error) {
-          console.error("설문 완료 상태 확인 실패:", error);
+          console.error("❌ 설문 완료 상태 확인 실패:", error);
           // 오류 발생 시 기본적으로 설문 필요 상태로 설정
           setPageState("survey_needed");
           return;
@@ -120,8 +159,14 @@ export default function MatchPage() {
       }
     };
 
-    initMatch();
-  }, [calculateMatch, params.code, router, user, profile]);
+    // 사용자 정보가 로드된 경우에만 초기화 실행 (프로필은 내부에서 직접 로드)
+    if (user && !initStarted) {
+      console.log("👤 사용자 정보 로드 완료, 매칭 초기화 시작");
+      initMatch();
+    } else if (!user) {
+      console.log("⏳ 사용자 인증 정보 로딩 중...");
+    }
+  }, [calculateMatch, params.code, router, user, initStarted]);
 
   // 로딩 상태
   if (pageState === "loading" || isLoading) {
@@ -238,7 +283,7 @@ export default function MatchPage() {
 
   // 매칭 결과 표시
   if (pageState === "match_result" && currentMatch && scannedUser) {
-    const myName = profile?.name || user?.email?.split("@")[0] || "당신";
+    const myName = user?.email?.split("@")[0] || "당신";
     const partnerName = scannedUser.userName || "매칭 상대";
 
     return (

@@ -60,7 +60,7 @@ export default function OnboardingPage() {
     fetchPartnerInfo();
   }, [qrCode]);
 
-  // 인증된 사용자인 경우 프로필 입력 단계로 이동
+  // 인증된 사용자인 경우 프로필 입력 단계로 이동 또는 설문으로 리디렉션
   useEffect(() => {
     console.log("🔄 온보딩 상태 확인:", {
       loading,
@@ -68,18 +68,97 @@ export default function OnboardingPage() {
       userId: user?.id,
       userEmail: user?.email,
       currentStep: step,
+      qrCode,
+      redirect: searchParams.get("redirect"),
     });
 
     if (!loading && user) {
-      console.log("✅ 로그인된 사용자 → profile 단계로 이동");
-      setStep("profile");
+      // 기존 회원이 QR 코드를 타고 들어온 경우 - 프로필 정보 확인
+      const checkProfileAndRedirect = async () => {
+        try {
+          // 사용자 프로필 정보 가져오기
+          const { getUserRepo } = await import(
+            "@/core/infra/RepositoryFactory"
+          );
+          const userProfile = await getUserRepo().getProfile(user.id);
+
+          console.log("🔍 사용자 프로필 정보:", {
+            id: userProfile?.id,
+            name: userProfile?.name,
+            hasProfile: !!userProfile,
+            hasName: !!userProfile?.name,
+            qrCode,
+            redirectUrl: searchParams.get("redirect"),
+            hasPartnerInfo: !!partnerInfo,
+            partnerId: partnerInfo?.userId,
+          });
+
+          // 프로필이 이미 완성된 경우 (이름이 있는 경우)
+          if (userProfile && userProfile.name) {
+            console.log("✅ 기존 회원의 프로필 정보 있음, 설문으로 바로 이동");
+
+            // QR 코드가 있는 경우 (리디렉션 URL 체크 없이)
+            if (qrCode) {
+              // 바로 설문으로 이동
+              console.log("🔄 QR 코드 스캔 후 설문으로 리디렉션");
+
+              try {
+                // QR 코드로 상대방 정보 가져오기
+                const { getUserByQRCode } = await import(
+                  "@/core/services/QRCodeService"
+                );
+                const qrPartner = await getUserByQRCode(qrCode);
+
+                console.log("🔍 QR 코드 상대방 정보:", qrPartner);
+
+                // 파트너 ID 가져오기 (partnerInfo 또는 QR 코드에서 직접)
+                const partnerId = partnerInfo?.userId || qrPartner?.userId;
+
+                if (partnerId) {
+                  console.log(
+                    "🎯 설문으로 리디렉션 (partner_id 포함):",
+                    partnerId
+                  );
+                  router.push(`/survey?partner_id=${partnerId}`);
+                  return;
+                } else {
+                  console.log(
+                    "⚠️ 파트너 ID를 찾을 수 없음, 일반 설문으로 이동"
+                  );
+                  router.push("/survey");
+                  return;
+                }
+              } catch (error) {
+                console.error("❌ QR 코드 처리 중 오류:", error);
+                // 오류 발생 시 일반 설문으로 이동
+                router.push("/survey");
+                return;
+              }
+            }
+
+            // QR 코드가 없는 경우에도 설문으로 이동
+            console.log("🔄 일반 설문으로 리디렉션");
+            router.push("/survey");
+            return;
+          }
+
+          // 프로필이 없거나 불완전한 경우 프로필 입력 단계로
+          console.log("✅ 로그인된 사용자 → profile 단계로 이동");
+          setStep("profile");
+        } catch (error) {
+          console.error("❌ 프로필 확인 중 오류:", error);
+          setStep("profile"); // 오류 발생 시 기본적으로 프로필 단계로
+        }
+      };
+
+      checkProfileAndRedirect();
     } else if (!loading && !user) {
       console.log("ℹ️ 비로그인 사용자 → register 단계로 이동");
       setStep("register");
     } else if (loading) {
       console.log("⏳ 인증 상태 확인 중...");
     }
-  }, [user, loading, step]);
+  }, [user, loading, step, qrCode, searchParams, router, partnerInfo]);
 
   // 회원가입 완료 후 프로필 단계로 자동 이동
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, Suspense } from "react";
+import { useCallback, useEffect, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -99,12 +99,16 @@ function SurveyContent() {
     reset,
   ]);
 
+  // 설문 완료 여부를 추적하는 상태
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
+
   // 초기 설문지 로딩
   useEffect(() => {
-    if (!surveyTemplate) {
+    // 설문이 이미 완료되었으면 초기화하지 않음
+    if (!surveyTemplate && !surveyCompleted) {
       handleInitSurvey();
     }
-  }, [surveyTemplate, handleInitSurvey]);
+  }, [surveyTemplate, handleInitSurvey, surveyCompleted]);
 
   if (isLoading || !surveyTemplate) {
     return <LoadingScreen message="설문을 준비하고 있습니다..." />;
@@ -202,6 +206,9 @@ function SurveyContent() {
 
   const handleSubmit = async () => {
     try {
+      // 설문 완료 상태로 설정 (추가 설문 로딩 방지)
+      setSurveyCompleted(true);
+
       // partnerId를 미리 저장 (submitSurvey 후에 reset되므로)
       const savedPartnerId = partnerId;
       const savedRedirectUrl = redirectUrl;
@@ -210,6 +217,7 @@ function SurveyContent() {
         userId: user?.id,
         partnerId: savedPartnerId,
         redirectUrl: savedRedirectUrl,
+        surveyCompleted: true,
       });
 
       await submitSurvey();
@@ -240,10 +248,11 @@ function SurveyContent() {
             const matchResult = await response.json();
             console.log("✅ 자동 매칭 생성 완료:", matchResult);
 
-            // 매칭 결과 페이지로 이동
+            // 매칭 결과 저장 (리포트로 이동하지 않음)
             if (matchResult.matchId) {
-              console.log("🎉 매칭 리포트로 이동:", matchResult.matchId);
-              router.push(`/match/report/${matchResult.matchId}`);
+              console.log("✅ 매칭 생성 완료:", matchResult.matchId);
+              // 프로필 페이지로 이동 (매칭 리포트로 직접 이동하지 않음)
+              router.push("/profile");
               // 중요: 여기서 리턴하여 추가 리다이렉션 방지
               return;
             } else {
