@@ -117,13 +117,78 @@ export default function ProfilePage() {
     }
   }, [user]);
 
+  // 프로필 로딩 상태 및 타임아웃 관리
+  const [loadingState, setLoadingState] = useState({
+    profileAttempted: false,
+    profileLoaded: false,
+    qrAttempted: false,
+    qrLoaded: false,
+    matchesAttempted: false,
+    matchesLoaded: false,
+  });
+
   // 초기화 - 의존성 배열에서 함수들 제거하여 무한 루프 방지
   useEffect(() => {
-    if (user?.id) {
-      fetchProfile(user.id);
-      fetchQRCode(user.id);
-      loadMatches();
-    }
+    if (!user?.id) return;
+
+    console.log("🔄 프로필 페이지 초기화 시작:", user.id);
+
+    // 로딩 상태 초기화
+    setLoadingState({
+      profileAttempted: false,
+      profileLoaded: false,
+      qrAttempted: false,
+      qrLoaded: false,
+      matchesAttempted: false,
+      matchesLoaded: false,
+    });
+
+    // 프로필 로드 타임아웃 설정
+    const profileTimeout = setTimeout(() => {
+      if (!loadingState.profileLoaded && user) {
+        console.log("⚠️ 프로필 로드 타임아웃 - 세션 확인 필요");
+        // 세션 문제가 의심되는 경우 로그아웃 처리
+        if (typeof window !== "undefined") {
+          alert(
+            "세션이 만료되었거나 프로필 로드에 실패했습니다. 다시 로그인해주세요."
+          );
+          signOut();
+        }
+      }
+    }, 8000); // 8초 타임아웃
+
+    // 1. 프로필 데이터 로드
+    setLoadingState((prev) => ({ ...prev, profileAttempted: true }));
+    fetchProfile(user.id)
+      .then(() => {
+        console.log("✅ 프로필 데이터 로드 완료");
+        setLoadingState((prev) => ({ ...prev, profileLoaded: true }));
+
+        // 2. QR 코드 로드
+        setLoadingState((prev) => ({ ...prev, qrAttempted: true }));
+        return fetchQRCode(user.id);
+      })
+      .then(() => {
+        console.log("✅ QR 코드 로드 완료");
+        setLoadingState((prev) => ({ ...prev, qrLoaded: true }));
+
+        // 3. 매칭 기록 로드
+        setLoadingState((prev) => ({ ...prev, matchesAttempted: true }));
+        return loadMatches();
+      })
+      .then(() => {
+        console.log("✅ 매칭 기록 로드 완료");
+        setLoadingState((prev) => ({ ...prev, matchesLoaded: true }));
+        clearTimeout(profileTimeout);
+      })
+      .catch((error) => {
+        console.error("❌ 프로필 데이터 로드 실패:", error);
+        clearTimeout(profileTimeout);
+      });
+
+    return () => {
+      clearTimeout(profileTimeout);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // user.id만 의존성으로 사용
 
@@ -151,12 +216,45 @@ export default function ProfilePage() {
     );
   }, []);
 
-  if (isLoading) {
-    return <LoadingScreen message="프로필 정보를 불러오는 중입니다..." />;
+  // 로딩 상태 처리 개선
+  if (!user) {
+    return <LoadingScreen message="사용자 인증 정보를 확인 중입니다..." />;
   }
 
-  if (!user || !profile) {
-    return <LoadingScreen message="사용자 정보를 확인 중입니다..." />;
+  // 프로필 로딩 상태에 따른 메시지 표시
+  if (isLoading || !loadingState.profileLoaded) {
+    return (
+      <LoadingScreen
+        message={
+          loadingState.profileAttempted
+            ? "프로필 정보를 불러오는 중입니다..."
+            : "프로필 데이터 로드를 준비 중입니다..."
+        }
+      />
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 p-4 items-center justify-center">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+          <h2 className="text-xl font-bold mb-4">
+            프로필 정보를 찾을 수 없습니다
+          </h2>
+          <p className="mb-6 text-gray-600">
+            프로필 정보를 불러오는 데 문제가 발생했습니다.
+            <br />
+            다시 로그인하시거나 새로고침을 시도해보세요.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              새로고침
+            </Button>
+            <Button onClick={signOut}>다시 로그인</Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const profileUrl = userQRCode
