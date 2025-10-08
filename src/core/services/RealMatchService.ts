@@ -92,80 +92,118 @@ export async function calculateRealMatch(
       new Set([...baseResult.commonTags, ...commonInterests])
     );
 
-    // 공통 관심사당 5점 추가
-    const interestBonus = commonInterests.length * 5;
+    // ✨ 설문 개수 차이에 따른 보정 계수 계산
+    const user1ResponseCount = user1Responses.length;
+    const user2ResponseCount = user2Responses.length;
+    const responseCountDiff = Math.abs(user1ResponseCount - user2ResponseCount);
+
+    // 설문 개수 차이가 클수록 가중치를 높임
+    let weightFactor = 1.0;
+    if (responseCountDiff > 5) {
+      // 설문 개수 차이가 클 때 (예: 신규 유저 8개, QR 생성자 100개)
+      // 신규 유저의 설문 응답이 더 중요하게 취급되어야 함
+      const fewerResponsesCount = Math.min(
+        user1ResponseCount,
+        user2ResponseCount
+      );
+      weightFactor = Math.max(1.5, 10 / fewerResponsesCount); // 최소 1.5배, 최대 10배
+      console.log(
+        `⚖️ 설문 개수 차이 보정 적용: ${weightFactor.toFixed(
+          2
+        )}배 (${fewerResponsesCount}개 vs ${Math.max(
+          user1ResponseCount,
+          user2ResponseCount
+        )}개)`
+      );
+    }
+
+    // 공통 관심사당 기본 10점에 가중치 적용
+    const interestBonus = Math.round(
+      commonInterests.length * 10 * weightFactor
+    );
+
+    // 전체 점수에 대한 보정 (신규 유저가 적은 설문으로 높은 매칭률을 가질 수 있도록)
+    const baseScoreWithBonus = baseResult.score + interestBonus;
+
+    // 설문 수가 적을 때 추가 보정 (최소 20점 보장)
+    const minScoreBoost = Math.max(0, 20 - baseScoreWithBonus);
 
     console.log("📊 기본 매칭 결과:", {
       baseScore: baseResult.score,
       interestBonus,
+      minScoreBoost,
+      weightFactor,
       commonTagsFromResponses: baseResult.commonTags.length,
       commonInterests: commonInterests.length,
       totalCommonTags: allCommonTags.length,
+      user1ResponseCount,
+      user2ResponseCount,
     });
 
-    // 2️⃣ AI 기반 의미적 유사성 분석 (기본 점수가 낮을 때만)
-    let finalScore = baseResult.score + interestBonus;
+    // 2️⃣ AI 기반 의미적 유사성 분석 (항상 실행)
+    let finalScore = baseResult.score + interestBonus + minScoreBoost;
     let semanticMatches: any[] = [];
 
-    if (finalScore < 50) {
-      console.log("🧠 기본 점수가 낮아 AI 의미적 분석 시작");
+    // 항상 AI 의미적 분석 실행 (점수에 상관없이)
+    console.log("🧠 AI 의미적 분석 시작");
 
-      try {
-        // 응답을 AI 분석용 형태로 변환
-        const user1FormattedResponses = user1Responses.map((response) => ({
-          question: questionMap.get(response.questionId)?.text || "알 수 없음",
-          answer: optionMap.get(response.optionId)?.text || "알 수 없음",
-        }));
+    try {
+      // 응답을 AI 분석용 형태로 변환
+      const user1FormattedResponses = user1Responses.map((response) => ({
+        question: questionMap.get(response.questionId)?.text || "알 수 없음",
+        answer: optionMap.get(response.optionId)?.text || "알 수 없음",
+      }));
 
-        const user2FormattedResponses = user2Responses.map((response) => ({
-          question: questionMap.get(response.questionId)?.text || "알 수 없음",
-          answer: optionMap.get(response.optionId)?.text || "알 수 없음",
-        }));
+      const user2FormattedResponses = user2Responses.map((response) => ({
+        question: questionMap.get(response.questionId)?.text || "알 수 없음",
+        answer: optionMap.get(response.optionId)?.text || "알 수 없음",
+      }));
 
-        // AI 의미적 유사성 분석 호출 (서버 환경에서는 절대 URL 필요)
-        const baseUrl =
-          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        const semanticResponse = await fetch(
-          `${baseUrl}/api/analyze-semantic-similarity`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user1Responses: user1FormattedResponses,
-              user2Responses: user2FormattedResponses,
-            }),
-          }
+      // AI 의미적 유사성 분석 호출 (서버 환경에서는 절대 URL 필요)
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const semanticResponse = await fetch(
+        `${baseUrl}/api/analyze-semantic-similarity`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user1Responses: user1FormattedResponses,
+            user2Responses: user2FormattedResponses,
+          }),
+        }
+      );
+
+      if (semanticResponse.ok) {
+        const semanticResult = await semanticResponse.json();
+        semanticMatches = semanticResult.semanticMatches || [];
+        const boostScore = semanticResult.boostScore || 0;
+
+        // 기본 점수 + 관심사 보너스 + 최소 점수 보정 + AI 보정
+        finalScore = Math.min(
+          100,
+          baseResult.score + interestBonus + minScoreBoost + boostScore
         );
 
-        if (semanticResponse.ok) {
-          const semanticResult = await semanticResponse.json();
-          semanticMatches = semanticResult.semanticMatches || [];
-          const boostScore = semanticResult.boostScore || 0;
+        console.log("✅ AI 의미적 분석 완료:", {
+          baseScore: baseResult.score,
+          interestBonus,
+          minScoreBoost,
+          aiBoostScore: boostScore,
+          finalScore,
+          semanticMatchCount: semanticMatches.length,
+        });
 
-          finalScore = Math.min(100, baseResult.score + boostScore);
-
-          console.log("✅ AI 의미적 분석 완료:", {
-            originalScore: baseResult.score,
-            boostScore,
-            finalScore,
-            semanticMatchCount: semanticMatches.length,
-          });
-
-          // 의미적 매칭을 commonTags에 추가
-          semanticMatches.forEach((match) => {
-            if (
-              match.commonCategories &&
-              Array.isArray(match.commonCategories)
-            ) {
-              baseResult.commonTags.push(...match.commonCategories);
-            }
-          });
-        }
-      } catch (aiError) {
-        console.warn("⚠️ AI 의미적 분석 실패 (기본 점수 유지):", aiError);
+        // 의미적 매칭을 commonTags에 추가
+        semanticMatches.forEach((match) => {
+          if (match.commonCategories && Array.isArray(match.commonCategories)) {
+            allCommonTags.push(...match.commonCategories);
+          }
+        });
       }
+    } catch (aiError) {
+      console.warn("⚠️ AI 의미적 분석 실패 (기본 점수 유지):", aiError);
     }
-
     // Get user profiles for context
     const user1 = await getUserRepo().getById(user1Id);
     const user2 = await getUserRepo().getById(user2Id);

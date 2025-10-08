@@ -244,6 +244,7 @@ function SurveyContent() {
             if (matchResult.matchId) {
               console.log("🎉 매칭 리포트로 이동:", matchResult.matchId);
               router.push(`/match/report/${matchResult.matchId}`);
+              // 중요: 여기서 리턴하여 추가 리다이렉션 방지
               return;
             } else {
               console.warn("⚠️ matchId가 없습니다:", matchResult);
@@ -266,10 +267,14 @@ function SurveyContent() {
         });
       }
 
+      // 자동 매칭이 실패한 경우에만 여기로 도달
       // 리다이렉션 URL이 있으면 해당 URL로, 없으면 프로필로 이동
+      console.log("🔄 기본 리다이렉션 실행:", savedRedirectUrl || "/profile");
       router.push(savedRedirectUrl || "/profile");
     } catch (error) {
-      console.error("Failed to submit survey:", error);
+      console.error("❌ 설문 제출 실패:", error);
+      // 에러 발생 시 프로필 페이지로 이동
+      router.push("/profile");
     }
   };
 

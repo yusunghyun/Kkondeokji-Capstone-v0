@@ -167,7 +167,8 @@ export async function POST(request: NextRequest) {
     // 6️⃣ AI 기반 향상된 리포트 자동 생성
     console.log("🤖 [STEP 7] AI 기반 향상된 리포트 자동 생성");
     try {
-      await generateEnhancedMatchReport(newMatch.id);
+      // 항상 새로운 리포트 생성 (force=true)
+      await generateEnhancedMatchReport(newMatch.id, true);
       console.log("✅ [STEP 7] AI 리포트 생성 완료");
     } catch (error) {
       console.error("⚠️ [STEP 7] AI 리포트 생성 실패 (계속 진행):", error);

@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
       name,
       age,
       occupation,
+      otherUserId,
     });
 
     // 환경변수에서 API 키 확인 (서버 사이드에서만 접근 가능)
@@ -179,10 +180,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(fallbackSurvey);
     }
 
+    // 상대방 정보 가져오기 (있는 경우)
+    let partnerInfo = null;
+    let partnerInterests = [];
+
+    if (otherUserId) {
+      try {
+        // 서버 사이드에서 직접 Supabase 호출
+        const { supabaseServer } = require("@/lib/supabase-server");
+
+        // 1. 상대방 기본 정보 가져오기
+        const { data: userData, error: userError } = await supabaseServer
+          .from("users")
+          .select("name, age, occupation, interests")
+          .eq("id", otherUserId)
+          .single();
+
+        if (userError) {
+          console.error("❌ 상대방 정보 조회 실패:", userError);
+        } else if (userData) {
+          partnerInfo = {
+            name: userData.name,
+            age: userData.age,
+            occupation: userData.occupation,
+          };
+
+          partnerInterests = userData.interests || [];
+          console.log("✅ 상대방 정보 조회 성공:", {
+            name: userData.name,
+            interestsCount: partnerInterests.length,
+          });
+        }
+      } catch (error) {
+        console.error("❌ 상대방 정보 조회 중 오류:", error);
+      }
+    }
+
     // 한국어 기반 트렌드 관심사 가져오기
     const trendingInterests = getTrendingInterests();
     const currentSeason = getCurrentSeason();
     const ageGroup = getAgeGroup(age);
+
+    // 상대방 관심사가 있으면 추가
+    const interestsToInclude = [
+      ...trendingInterests.slice(0, 5),
+      ...partnerInterests.slice(0, 5),
+    ];
 
     const prompt = `당신은 한국의 젊은 세대를 위한 매칭 설문 전문가입니다. 다음 사용자를 위한 **완전 한국어 기반** 개인 맞춤 설문조사를 생성해주세요.
 
@@ -190,9 +233,35 @@ export async function POST(request: NextRequest) {
 - 이름: ${name || "사용자"}
 - 나이: ${age || "미상"}세 (${ageGroup})
 - 직업: ${occupation || "미상"}
+${
+  partnerInfo
+    ? `
+**상대방 정보 (QR 코드 생성자):**
+- 이름: ${partnerInfo.name || "상대방"}
+- 나이: ${partnerInfo.age || "미상"}세
+- 직업: ${partnerInfo.occupation || "미상"}
+- 관심사: ${partnerInterests.slice(0, 5).join(", ") || "정보 없음"}
+`
+    : ""
+}
 
-**현재 트렌드:** ${trendingInterests.slice(0, 10).join(", ")}
+**현재 트렌드:** ${interestsToInclude.join(", ")}
 **계절/시기:** ${currentSeason}
+
+${
+  partnerInfo
+    ? `
+**중요: 이 사용자는 ${partnerInfo.name}님의 QR 코드를 스캔한 사람입니다.**
+- 사용자의 나이(${age || "미상"}세)와 직업(${
+        occupation || "미상"
+      })을 고려하세요.
+- 상대방의 관심사(${
+        partnerInterests.slice(0, 5).join(", ") || "정보 없음"
+      })를 반영한 질문을 포함하세요.
+- 두 사람의 공통점을 찾을 수 있는 질문을 만들어주세요.
+`
+    : ""
+}
 
 **🎯 중요: 질문과 답변의 일치성을 반드시 지켜주세요!**
 

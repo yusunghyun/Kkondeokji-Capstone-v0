@@ -168,8 +168,17 @@ export default function OnboardingPage() {
       const userSurveyId = await startSurvey(user.id, templateId);
       console.log("✅ 사용자 설문 생성 완료:", userSurveyId);
 
-      console.log("🎯 온보딩: 설문 페이지로 이동");
-      router.push(`/survey?templateId=${templateId}`);
+      console.log("🎯 온보딩: 설문 페이지로 이동", {
+        templateId,
+        partnerId: partnerInfo?.userId,
+      });
+
+      // ✨ partnerInfo가 있으면 partner_id를 URL에 포함
+      const surveyUrl = partnerInfo
+        ? `/survey?templateId=${templateId}&partner_id=${partnerInfo.userId}`
+        : `/survey?templateId=${templateId}`;
+
+      router.push(surveyUrl);
     } catch (err) {
       console.error("❌ 온보딩 에러:", err);
       setError(

@@ -164,7 +164,8 @@ function calculateMatchScore(
 }
 
 export async function generateEnhancedMatchReport(
-  matchId: string
+  matchId: string,
+  force: boolean = false
 ): Promise<void> {
   try {
     const matchRepo = getMatchRepo();
@@ -182,20 +183,60 @@ export async function generateEnhancedMatchReport(
       return;
     }
 
+    // 이미 AI 인사이트가 있고, force가 false면 건너뜀
+    if (match.aiInsights && !force) {
+      console.log("AI 인사이트가 이미 있어 재생성을 건너뜁니다 (force=false)");
+      return;
+    }
+
     // 사용자 이름 추출
     const user1Name = match.user1?.name || "사용자 1";
     const user2Name = match.user2?.name || "사용자 2";
 
-    // 공통 응답을 개별 응답으로 변환 (동일한 응답이므로 두 사용자 모두 같은 응답)
+    // 사용자 프로필 가져오기
+    const userRepo = getUserRepo();
+    const user1Profile = await userRepo.getProfile(match.user1Id);
+    const user2Profile = await userRepo.getProfile(match.user2Id);
+
+    // 사용자 관심사 추출
+    const user1Interests = user1Profile?.interests || [];
+    const user2Interests = user2Profile?.interests || [];
+
+    console.log("👥 사용자 관심사:", {
+      user1: user1Interests.length,
+      user2: user2Interests.length,
+    });
+
+    // 공통 관심사 찾기
+    const commonTags = commonInterests.tags || [];
+
+    // 공통 응답을 개별 응답으로 변환
     const commonResponses = commonInterests.responses.map((response) => ({
       question: response.question,
       answer: response.answer,
     }));
 
+    // 사용자별 응답 준비 (더 정확한 분석을 위해)
+    const user1Responses = [
+      ...commonResponses,
+      ...user1Interests.map((interest) => ({
+        question: "관심사",
+        answer: interest,
+      })),
+    ];
+
+    const user2Responses = [
+      ...commonResponses,
+      ...user2Interests.map((interest) => ({
+        question: "관심사",
+        answer: interest,
+      })),
+    ];
+
     // AI를 사용해 향상된 매칭 분석 생성 (매번 새로운 인사이트)
     const enhancedInsights = await generatePersonalizedMatchInsights(
-      commonResponses, // user1 응답 (공통 응답 사용)
-      commonResponses, // user2 응답 (공통 응답 사용)
+      user1Responses, // user1 응답
+      user2Responses, // user2 응답
       match.matchScore, // 매칭 점수
       user1Name, // 사용자 1 이름
       user2Name // 사용자 2 이름
