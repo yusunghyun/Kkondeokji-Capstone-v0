@@ -20,6 +20,65 @@ const interestMap: Record<string, string> = {
   study: "공부",
   social: "사교",
   economy: "경제",
+  // ---- 라이프스타일 & 취미 ----
+  painting: "그림그리기",
+  gardening: "가드닝",
+  knitting: "뜨개질",
+  baking: "베이킹",
+  brewing: "홈브루잉",
+  fishing: "낚시",
+  surfing: "서핑",
+  snowboarding: "스노보드",
+  golf: "골프",
+  climbing: "클라이밍",
+  pilates: "필라테스",
+  skateboarding: "스케이트보드",
+  coding: "코딩",
+  ux_design: "UX디자인",
+  data_science: "데이터사이언스",
+  blockchain: "블록체인",
+  vr_ar: "VR/AR",
+
+  // ---- 음식 & 음료 ----
+  coffee: "커피",
+  tea: "차",
+  wine: "와인",
+  beer: "맥주",
+  cocktail: "칵테일",
+  vegan_food: "비건음식",
+  korean_bbq: "한식바베큐",
+  sushi: "스시",
+  ramen: "라멘",
+  street_food: "길거리음식",
+
+  // ---- 음악 장르 ----
+  hiphop: "힙합",
+  jazz: "재즈",
+  classical: "클래식",
+  rock: "록",
+  edm: "EDM",
+  indie: "인디음악",
+
+  // ---- 영화 & 드라마 장르 ----
+  action_movie: "액션영화",
+  romance_movie: "로맨스영화",
+  thriller_movie: "스릴러영화",
+  documentary: "다큐멘터리",
+  animation: "애니메이션",
+
+  // ---- 여행 스타일 ----
+  backpacking: "배낭여행",
+  city_tour: "도시관광",
+  luxury_travel: "럭셔리여행",
+  camping: "캠핑",
+  glamping: "글램핑",
+
+  // ---- 기타 ----
+  sudoku: "스도쿠",
+  volunteering: "봉사활동",
+  language_learning: "언어학습",
+  finance: "재테크",
+  diy: "DIY",
 
   // 지역
   songpa: "송파구",

@@ -554,11 +554,38 @@ export function TagChip({
       "bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 border-emerald-300 hover:from-emerald-200 hover:to-teal-200",
       weight
     ),
-    default: getIntensityClass(
-      "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 border-gray-300 hover:from-gray-200 hover:to-slate-200",
-      weight
-    ),
+    default: getIntensityClass(generateDynamicGradient(label, weight), weight),
   };
+
+  // 동적 그라데이션 생성 함수
+  function generateDynamicGradient(tagLabel: string, weight?: number): string {
+    // Tailwind 파스텔 팔레트 중 일부 추출
+    const pastelPairs = [
+      ["pink-100", "rose-100", "pink-800"],
+      ["sky-100", "cyan-100", "sky-800"],
+      ["lime-100", "green-100", "green-800"],
+      ["amber-100", "yellow-100", "amber-800"],
+      ["violet-100", "fuchsia-100", "violet-800"],
+      ["stone-100", "zinc-100", "stone-800"],
+    ];
+
+    // 해시 생성→인덱스
+    const hash = Array.from(tagLabel).reduce(
+      (acc, c) => acc + c.charCodeAt(0),
+      0
+    );
+    const pair = pastelPairs[hash % pastelPairs.length];
+    const [from, to, text] = pair;
+
+    const base = `bg-gradient-to-r from-${from} to-${to} text-${text} border-${text.replace(
+      "800",
+      "300"
+    )} hover:from-${from.replace("100", "200")} hover:to-${to.replace(
+      "100",
+      "200"
+    )}`;
+    return getIntensityClass(base, weight);
+  }
 
   return (
     <span

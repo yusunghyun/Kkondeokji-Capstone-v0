@@ -57,13 +57,12 @@ ${user2Text}
 
 응답에 없는 내용은 절대 만들어내지 마세요. 실제 데이터만 사용하세요.`;
 
-    console.log("🚀 OpenAI GPT-4o-mini로 매치 인사이트 요청 중...");
+    console.log("🚀 OpenAI GPT-5-nano-2025-08-07로 매치 인사이트 요청 중...");
 
     const { text } = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-5-nano-2025-08-07"),
       prompt,
-      maxTokens: 200, // 간결한 응답을 위해 줄임
-      temperature: 0.7,
+      temperature: 1,
     });
 
     console.log("✅ AI 매치 인사이트 생성 완료!");

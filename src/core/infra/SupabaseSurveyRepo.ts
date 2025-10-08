@@ -35,6 +35,41 @@ export const supabaseSurveyRepo: SurveyRepo = {
   },
 
   async createTemplate(template): Promise<string> {
+    console.log(`[SurveyRepo] 새 템플릿 생성 시작: "${template.title}"`, {
+      description: template.description,
+      aiGenerated: template.aiGenerated,
+    });
+
+    console.log("template.questions", template.questions);
+    console.log("template", template);
+    // 테스트 함수
+    async function testSupabase() {
+      try {
+        console.log("Supabase 연결 테스트 시작...");
+
+        // 가장 간단한 쿼리 - 테이블 존재 여부만 확인
+        const { data, error } = await supabase
+          .from("survey_templates")
+          .select("id")
+          .limit(1);
+
+        if (error) {
+          console.error("테스트 실패:", error);
+          return false;
+        }
+
+        console.log("테스트 성공, 데이터:", data);
+        return true;
+      } catch (e) {
+        console.error("테스트 중 예외 발생:", e);
+        return false;
+      }
+    }
+
+    // 실행
+    testSupabase().then((isConnected) => {
+      console.log("Supabase 연결 상태:", isConnected ? "정상" : "비정상");
+    });
     // Start a transaction
     const { data: templateData, error: templateError } = await supabase
       .from("survey_templates")
@@ -49,9 +84,25 @@ export const supabaseSurveyRepo: SurveyRepo = {
       .single();
 
     if (templateError) {
-      console.error("Error creating survey template:", templateError);
-      throw new Error("Failed to create survey template");
+      console.error("[SurveyRepo] 템플릿 생성 실패:", {
+        error: templateError,
+        errorCode: templateError.code,
+        errorMessage: templateError.message,
+        details: templateError.details,
+        hint: templateError.hint,
+        template: {
+          title: template.title,
+          hasDescription: !!template.description,
+          aiGenerated: template.aiGenerated,
+        },
+      });
+      throw new Error(`템플릿 생성 실패: ${templateError.message}`);
     }
+
+    console.log(`[SurveyRepo] 템플릿 생성 성공, ID: ${templateData.id}`, {
+      title: template.title,
+      aiGenerated: template.aiGenerated,
+    });
 
     const templateId = templateData.id;
     console.log("✅ 설문 템플릿 생성 완료:", templateId);
@@ -66,6 +117,8 @@ export const supabaseSurveyRepo: SurveyRepo = {
     // Insert questions
     for (let i = 0; i < template.questions.length; i++) {
       const question = template.questions[i];
+
+      console.log("question", question);
 
       const { data: questionData, error: questionError } = await supabase
         .from("questions")

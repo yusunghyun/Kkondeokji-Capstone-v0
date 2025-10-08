@@ -21,7 +21,7 @@ function getAgeGroup(age?: number): string {
   if (age < 25) return "Z세대 (20대 초반)";
   if (age < 30) return "밀레니얼 (20대 후반)";
   if (age < 35) return "3030세대 (30대 초반)";
-  return "3040세대";
+  return "4060세대";
 }
 
 // JSON 파싱 유틸리티
@@ -271,6 +271,19 @@ export async function POST(request: NextRequest) {
       "워케이션",
     ];
 
+    // 🔀 유틸: 배열 섞기
+    const shuffleArray = <T>(array: T[]): T[] =>
+      array
+        .map((v) => ({ v, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ v }) => v);
+
+    // 🔀 유틸: 중복 제거 후 원하는 개수만 추출
+    const pickRandomUnique = <T>(items: T[], count: number): T[] => {
+      const unique = Array.from(new Set(items));
+      return shuffleArray(unique).slice(0, count);
+    };
+
     // 상황별 관심사 설정
     let interestsToInclude = [];
 
@@ -278,26 +291,26 @@ export async function POST(request: NextRequest) {
       case "QR_SCAN":
         // QR 코드 스캔: 상대방 관심사 + 트렌드
         interestsToInclude = [
-          ...partnerInterests.slice(0, 5),
-          ...trendingInterests.slice(0, 3),
-          ...trends2025.slice(0, 2),
+          ...pickRandomUnique(partnerInterests, 6),
+          ...pickRandomUnique(trendingInterests, 4),
+          ...pickRandomUnique(trends2025, 3),
         ];
         break;
 
       case "EXISTING_USER":
         // 기존 사용자: 기존 관심사 + 2025 트렌드
         interestsToInclude = [
-          ...userInterests.slice(0, 3),
-          ...trends2025.slice(0, 5),
-          ...trendingInterests.slice(0, 2),
+          ...pickRandomUnique(userInterests, 5),
+          ...pickRandomUnique(trends2025, 4),
+          ...pickRandomUnique(trendingInterests, 3),
         ];
         break;
 
       default:
         // 신규 사용자: 트렌드 + 2025 트렌드
         interestsToInclude = [
-          ...trendingInterests.slice(0, 5),
-          ...trends2025.slice(0, 5),
+          ...pickRandomUnique(trendingInterests, 6),
+          ...pickRandomUnique(trends2025, 6),
         ];
     }
 
@@ -397,7 +410,7 @@ export async function POST(request: NextRequest) {
 - 사용자의 나이(${age || "미상"}세)와 직업(${
           occupation || "미상"
         })을 고려한 맞춤형 질문을 만들어주세요.
-- 2025년 트렌드와 관련된 관심사를 탐색하는 질문을 반드시 포함하세요.
+- 엄청중요: 2025년 트렌드와 관련된 관심사를 탐색하는 질문을 반드시 포함하세요.
 - ${ageGroup}에게 인기 있는 활동과 관심사를 반영한 질문을 포함하세요.
 - ${currentSeason} 시즌에 적합한 활동과 관련된 질문을 포함하세요.
 - 사용자의 직업(${
@@ -419,14 +432,14 @@ export async function POST(request: NextRequest) {
 
 **질문 유형별 가이드라인:**
 
-**1️⃣ 관심도/선호도 질문** → 감정 기반 답변
+** 1. 관심도/선호도 질문** → 감정 기반 답변
 ✅ 좋은 예시:
 - "웹툰을 얼마나 자주 보시나요?" → 매일/주 1-2회/거의 안 봄/전혀 안 봄
 - "K-POP 음악에 대한 관심도는 어떠신가요?" → 매우 좋아함/좋아함/보통/관심 없음
 - "운동하는 것을 좋아하시나요?" → 매우 좋아함/좋아함/보통/싫어함
 → 답변: 감정이나 빈도를 나타내는 선택지
 
-**2️⃣ 선택형 질문** → 구체적인 선택지
+**2. 선택형 질문** → 구체적인 선택지
 ✅ 좋은 예시:
 - "주말에 가장 선호하는 활동은 무엇인가요?" → 영화 감상/운동/카페/독서
 - "가장 좋아하는 음료 종류는?" → 아메리카노/라떼/에이드/차
@@ -453,7 +466,7 @@ export async function POST(request: NextRequest) {
 - 계절 트렌드 (${currentSeason} 특별 주제)
 - 소통 스타일 (대화 방식, 만남 선호)
 
-**출력 형식 (JSON):**
+**출력 형식 예시 (JSON):**
 {
   "title": "당신만의 매칭 설문조사",
   "description": "AI가 생성한 맞춤형 한국어 설문",
@@ -493,6 +506,18 @@ export async function POST(request: NextRequest) {
         {"text": "보통", "value": "kpop_neutral", "icon": "😐"},
         {"text": "관심 없음", "value": "kpop_dislike", "icon": "😑"}
       ]
+    },
+    {
+      "text": "최근에 어떤 공부를 하고 계신가요?",
+      "category": "학문",
+      "weight": 1,
+      "type": "choice",
+      "options": [
+        {"text": "AI 관련 공부", "value": "study_ai", "icon": "😍"},
+        {"text": "코딩 공부", "value": "study_coding", "icon": "😊"},
+        {"text": "외국어 공부", "value": "study_foreign_language", "icon": "😐"},
+        {"text": "기타", "value": "study_etc", "icon": "😑"}
+      ]
     }
   ]
 }
@@ -509,20 +534,21 @@ export async function POST(request: NextRequest) {
 3. 선택형 질문에는 구체적인 선택지만 사용 (카페/영화/운동/독서)
 4. "어떤 ~를 좋아하세요?"와 같은 질문에 감정 기반 답변을 사용하지 않음
 5. 모든 질문은 명확하고 구체적으로 작성
+`;
 
-지금 당장 한국 ${ageGroup}들 사이에서 핫한 주제들로 **자연스럽고 일치하는 8개 질문**을 만들어주세요!`;
-
-    console.log("🚀 OpenAI GPT-4o-mini로 한국어 설문 요청 중...");
+    console.log("🚀 OpenAI GPT-5-nano-2025-08-07로 한국어 설문 요청 중...");
+    console.log("요청 프롬프트:", prompt);
 
     const { text } = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-5-nano-2025-08-07"),
       prompt,
-      maxTokens: 2000,
-      temperature: 0.8, // 창의성 향상
+      temperature: 1,
     });
 
-    console.log("✅ AI 설문 생성 완료!");
-    const result = parseSurveyResponse(text);
+    console.log("✅ AI 설문 생성 완료! (raw length:", text.length, ")");
+
+    // JSON 전용 응답이므로 바로 파싱
+    const result = parseSurveyResponse(text) || JSON.parse(text);
 
     console.log("📋 생성된 설문 미리보기:", {
       title: result?.title,
