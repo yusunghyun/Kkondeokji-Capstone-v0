@@ -24,6 +24,7 @@ export async function generatePersonalizedSurvey(userInfo: {
   age?: number;
   occupation?: string;
   otherUserId?: string;
+  userId?: string;
 }): Promise<string> {
   console.log("🚀 AI 개인화 설문 생성 시작:", userInfo);
 

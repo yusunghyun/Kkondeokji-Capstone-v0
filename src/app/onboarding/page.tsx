@@ -217,6 +217,7 @@ export default function OnboardingPage() {
         age: age ? Number.parseInt(age) : undefined,
         occupation: occupation || undefined,
         otherUserId: partnerInfo?.userId || undefined,
+        userId: user.id || undefined, // 사용자 ID 추가 (기존/신규 사용자 구분용)
       });
 
       console.log("✅ 온보딩: AI 설문 생성 완료, templateId:", templateId);

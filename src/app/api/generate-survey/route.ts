@@ -100,54 +100,10 @@ function generateKoreanFallbackSurvey(userInfo: {
         category: "음식",
         weight: 2,
         options: [
-          { text: "매우 좋아함", value: "drink_love", icon: "☕" },
-          { text: "좋아함", value: "drink_like", icon: "🥤" },
+          { text: "매우 좋아함", value: "drink_love", icon: "🥤" },
+          { text: "좋아함", value: "drink_like", icon: "☕" },
           { text: "보통", value: "drink_neutral", icon: "😐" },
           { text: "관심 없음", value: "drink_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "운동이나 액티비티에 대한 관심도는?",
-        category: "운동",
-        weight: 2,
-        options: [
-          { text: "매우 좋아함", value: "exercise_love", icon: "💪" },
-          { text: "좋아함", value: "exercise_like", icon: "🏃" },
-          { text: "보통", value: "exercise_neutral", icon: "😐" },
-          { text: "관심 없음", value: "exercise_dislike", icon: "😴" },
-        ],
-      },
-      {
-        text: "여행을 계획할 때 가장 중요한 요소는?",
-        category: "여행",
-        weight: 2,
-        options: [
-          { text: "매우 중요함", value: "travel_love", icon: "✈️" },
-          { text: "중요함", value: "travel_like", icon: "🗺️" },
-          { text: "보통", value: "travel_neutral", icon: "😐" },
-          { text: "중요하지 않음", value: "travel_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "새로운 사람과 만날 때 선호하는 분위기는?",
-        category: "소통",
-        weight: 3,
-        options: [
-          { text: "매우 선호함", value: "meeting_love", icon: "🤝" },
-          { text: "선호함", value: "meeting_like", icon: "😊" },
-          { text: "보통", value: "meeting_neutral", icon: "😐" },
-          { text: "선호하지 않음", value: "meeting_dislike", icon: "😑" },
-        ],
-      },
-      {
-        text: "MBTI가 실제 성격을 잘 나타낸다고 생각하나요?",
-        category: "성격",
-        weight: 1,
-        options: [
-          { text: "매우 그렇다", value: "mbti_love", icon: "🎯" },
-          { text: "그렇다", value: "mbti_like", icon: "👍" },
-          { text: "보통", value: "mbti_neutral", icon: "😐" },
-          { text: "그렇지 않다", value: "mbti_dislike", icon: "👎" },
         ],
       },
     ],
@@ -156,27 +112,76 @@ function generateKoreanFallbackSurvey(userInfo: {
 
 export async function POST(request: NextRequest) {
   try {
+    // API 키 확인
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      throw new Error("AI_LoadAPIKeyError: OpenAI API key is missing");
+    }
+    console.log("🔑 OpenAI API Key 상태: ✅ 설정됨");
+
+    // 요청 본문 파싱
     const body = await request.json();
-    const { name, age, occupation, otherUserId } = body;
+    const { name, age, occupation, otherUserId, userId } = body;
 
     console.log("🤖 서버에서 AI 기반 한국어 설문 생성 시작:", {
       name,
       age,
       occupation,
       otherUserId,
+      userId,
     });
 
-    // 환경변수에서 API 키 확인 (서버 사이드에서만 접근 가능)
-    const apiKey = process.env.OPENAI_API_KEY;
-    console.log("🔑 OpenAI API Key 상태:", apiKey ? "✅ 설정됨" : "❌ 없음");
+    // 설문 유형 결정
+    let surveyType = "NEW_USER"; // 기본값: 신규 사용자
+    let userInterests = [];
 
-    if (!apiKey) {
-      console.log("🔄 API 키가 없어 폴백 설문 사용");
-      const fallbackSurvey = generateKoreanFallbackSurvey({
-        name,
-        age,
-        occupation,
-      });
+    // 사용자 ID와 상대방 ID가 모두 있으면 QR 코드 스캔 케이스
+    if (userId && otherUserId) {
+      surveyType = "QR_SCAN";
+      console.log("📱 QR 코드 스캔 기반 설문 생성");
+    }
+    // 사용자 ID만 있고 기존에 설문을 완료한 경우 기존 사용자의 추가 설문
+    else if (userId) {
+      // 서버 사이드에서 직접 Supabase 호출
+      const { supabaseServer } = require("@/lib/supabase-server");
+
+      // 사용자의 완료된 설문 확인
+      const { data: userSurveys, error: surveysError } = await supabaseServer
+        .from("user_surveys")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("completed", true);
+
+      if (!surveysError && userSurveys && userSurveys.length > 0) {
+        surveyType = "EXISTING_USER";
+        console.log("🔄 기존 사용자 추가 설문 생성");
+
+        // 사용자 프로필에서 관심사 가져오기
+        const { data: userData, error: userError } = await supabaseServer
+          .from("users")
+          .select("interests")
+          .eq("id", userId)
+          .single();
+
+        if (!userError && userData && userData.interests) {
+          userInterests = userData.interests;
+          console.log("✅ 기존 사용자 관심사 로드 완료:", userInterests.length);
+        }
+      } else {
+        console.log("🆕 신규 사용자 첫 설문 생성");
+      }
+    }
+
+    console.log("🏷️ 설문 유형:", surveyType);
+
+    // 폴백 설문 준비 (AI 실패 시 사용)
+    const fallbackSurvey = generateKoreanFallbackSurvey({
+      name,
+      age,
+      occupation,
+    });
+    if (!OPENAI_API_KEY) {
+      console.log("🔑 OpenAI API Key 없음, 폴백 설문 사용");
       return NextResponse.json(fallbackSurvey);
     }
 
@@ -221,47 +226,166 @@ export async function POST(request: NextRequest) {
     const currentSeason = getCurrentSeason();
     const ageGroup = getAgeGroup(age);
 
-    // 상대방 관심사가 있으면 추가
-    const interestsToInclude = [
-      ...trendingInterests.slice(0, 5),
-      ...partnerInterests.slice(0, 5),
+    // 2025년 트렌드 키워드 (미래지향적)
+    const trends2025 = [
+      "AI 개인비서",
+      "메타버스",
+      "디지털 웰니스",
+      "지속가능한 패션",
+      "홈트레이닝",
+      "가상여행",
+      "디지털 디톡스",
+      "마이크로 러닝",
+      "로컬 푸드",
+      "스마트홈",
+      "웰빙 테크",
+      "뉴트로",
+      "워케이션",
     ];
 
-    const prompt = `당신은 한국의 젊은 세대를 위한 매칭 설문 전문가입니다. 다음 사용자를 위한 **완전 한국어 기반** 개인 맞춤 설문조사를 생성해주세요.
+    // 상황별 관심사 설정
+    let interestsToInclude = [];
+
+    switch (surveyType) {
+      case "QR_SCAN":
+        // QR 코드 스캔: 상대방 관심사 + 트렌드
+        interestsToInclude = [
+          ...partnerInterests.slice(0, 5),
+          ...trendingInterests.slice(0, 3),
+          ...trends2025.slice(0, 2),
+        ];
+        break;
+
+      case "EXISTING_USER":
+        // 기존 사용자: 기존 관심사 + 2025 트렌드
+        interestsToInclude = [
+          ...userInterests.slice(0, 3),
+          ...trends2025.slice(0, 5),
+          ...trendingInterests.slice(0, 2),
+        ];
+        break;
+
+      default:
+        // 신규 사용자: 트렌드 + 2025 트렌드
+        interestsToInclude = [
+          ...trendingInterests.slice(0, 5),
+          ...trends2025.slice(0, 5),
+        ];
+    }
+
+    // 상황별 맞춤형 프롬프트 생성
+    let prompt = "";
+
+    switch (surveyType) {
+      case "QR_SCAN":
+        // QR 코드 스캔 케이스 (상대방과 연결)
+        prompt = `당신은 한국의 젊은 세대를 위한 매칭 설문 전문가입니다. 다음 사용자를 위한 **완전 한국어 기반** 개인 맞춤 설문조사를 생성해주세요.
 
 **사용자 정보:**
 - 이름: ${name || "사용자"}
 - 나이: ${age || "미상"}세 (${ageGroup})
 - 직업: ${occupation || "미상"}
-${
-  partnerInfo
-    ? `
+
 **상대방 정보 (QR 코드 생성자):**
-- 이름: ${partnerInfo.name || "상대방"}
-- 나이: ${partnerInfo.age || "미상"}세
-- 직업: ${partnerInfo.occupation || "미상"}
+- 이름: ${partnerInfo?.name || "상대방"}
+- 나이: ${partnerInfo?.age || "미상"}세
+- 직업: ${partnerInfo?.occupation || "미상"}
 - 관심사: ${partnerInterests.slice(0, 5).join(", ") || "정보 없음"}
-`
-    : ""
-}
 
 **현재 트렌드:** ${interestsToInclude.join(", ")}
 **계절/시기:** ${currentSeason}
+**2025년 주목 키워드:** ${trends2025.slice(0, 5).join(", ")}
 
-${
-  partnerInfo
-    ? `
-**중요: 이 사용자는 ${partnerInfo.name}님의 QR 코드를 스캔한 사람입니다.**
-- 사용자의 나이(${age || "미상"}세)와 직업(${
-        occupation || "미상"
-      })을 고려하세요.
+**중요: 이 사용자는 ${
+          partnerInfo?.name || "상대방"
+        }님의 QR 코드를 스캔한 사람입니다.**
+- 두 사람의 직업(${occupation || "미상"} vs ${
+          partnerInfo?.occupation || "미상"
+        })을 고려한 질문을 포함하세요.
+- 사용자의 나이(${age || "미상"}세)와 상대방의 나이(${
+          partnerInfo?.age || "미상"
+        }세)를 고려하세요.
 - 상대방의 관심사(${
-        partnerInterests.slice(0, 5).join(", ") || "정보 없음"
-      })를 반영한 질문을 포함하세요.
-- 두 사람의 공통점을 찾을 수 있는 질문을 만들어주세요.
-`
-    : ""
-}
+          partnerInterests.slice(0, 5).join(", ") || "정보 없음"
+        })를 반영한 질문을 반드시 포함하세요.
+- 두 사람의 공통점을 찾을 수 있는 질문을 최소 3개 이상 만들어주세요.
+- 서로의 직업과 관련된 대화 주제가 될 만한 질문을 포함하세요.
+
+**설문 생성 원칙:**
+1. ✅ **100% 한국어**: 모든 텍스트를 자연스러운 한국어로
+2. ✅ **MZ세대 친화적**: 요즘 트렌드와 문화 반영
+3. ✅ **질문-답변 일치**: 질문 형태에 맞는 답변 형태 사용
+4. ✅ **실용적 매칭**: 실제 만남에서 대화 소재가 될 주제
+5. ✅ **연결 중심**: 두 사람의 연결점을 찾는 질문 중심`;
+        break;
+
+      case "EXISTING_USER":
+        // 기존 사용자 케이스 (추가 설문)
+        prompt = `당신은 한국의 젊은 세대를 위한 매칭 설문 전문가입니다. 다음 사용자를 위한 **완전 한국어 기반** 개인 맞춤 설문조사를 생성해주세요.
+
+**사용자 정보:**
+- 이름: ${name || "사용자"}
+- 나이: ${age || "미상"}세 (${ageGroup})
+- 직업: ${occupation || "미상"}
+- 기존 관심사: ${userInterests.slice(0, 5).join(", ") || "정보 없음"}
+
+**현재 트렌드:** ${interestsToInclude.join(", ")}
+**계절/시기:** ${currentSeason}
+**2025년 주목 키워드:** ${trends2025.slice(0, 5).join(", ")}
+
+**중요: 이 사용자는 이미 설문을 완료한 기존 회원입니다.**
+- 사용자의 기존 관심사(${
+          userInterests.slice(0, 5).join(", ") || "정보 없음"
+        })를 더 깊이 탐색하는 질문을 포함하세요.
+- 2025년 트렌드와 관련된 새로운 관심사를 발견할 수 있는 질문을 포함하세요.
+- 사용자의 직업(${
+          occupation || "미상"
+        })과 관련된 전문적인 관심사를 탐색하는 질문을 포함하세요.
+- 기존 관심사를 바탕으로 더 구체적인 취향을 알아볼 수 있는 질문을 만들어주세요.
+- 사용자가 새로운 취미나 활동에 도전할 의향이 있는지 탐색하는 질문을 포함하세요.
+
+**설문 생성 원칙:**
+1. ✅ **100% 한국어**: 모든 텍스트를 자연스러운 한국어로
+2. ✅ **MZ세대 친화적**: 요즘 트렌드와 문화 반영
+3. ✅ **질문-답변 일치**: 질문 형태에 맞는 답변 형태 사용
+4. ✅ **심층 탐색**: 기존 관심사를 더 깊이 탐색하는 질문
+5. ✅ **미래 지향적**: 2025년 트렌드를 반영한 새로운 관심사 탐색`;
+        break;
+
+      default:
+        // 신규 사용자 케이스 (첫 설문)
+        prompt = `당신은 한국의 젊은 세대를 위한 매칭 설문 전문가입니다. 다음 사용자를 위한 **완전 한국어 기반** 개인 맞춤 설문조사를 생성해주세요.
+
+**사용자 정보:**
+- 이름: ${name || "사용자"}
+- 나이: ${age || "미상"}세 (${ageGroup})
+- 직업: ${occupation || "미상"}
+
+**현재 트렌드:** ${interestsToInclude.join(", ")}
+**계절/시기:** ${currentSeason}
+**2025년 주목 키워드:** ${trends2025.slice(0, 5).join(", ")}
+
+**중요: 이 사용자는 처음 설문에 참여하는 신규 회원입니다.**
+- 사용자의 나이(${age || "미상"}세)와 직업(${
+          occupation || "미상"
+        })을 고려한 맞춤형 질문을 만들어주세요.
+- 2025년 트렌드와 관련된 관심사를 탐색하는 질문을 반드시 포함하세요.
+- ${ageGroup}에게 인기 있는 활동과 관심사를 반영한 질문을 포함하세요.
+- ${currentSeason} 시즌에 적합한 활동과 관련된 질문을 포함하세요.
+- 사용자의 직업(${
+          occupation || "미상"
+        })과 관련된 취향이나 활동을 탐색하는 질문을 포함하세요.
+
+**설문 생성 원칙:**
+1. ✅ **100% 한국어**: 모든 텍스트를 자연스러운 한국어로
+2. ✅ **MZ세대 친화적**: 요즘 트렌드와 문화 반영
+3. ✅ **질문-답변 일치**: 질문 형태에 맞는 답변 형태 사용
+4. ✅ **실용적 매칭**: 실제 만남에서 대화 소재가 될 주제
+5. ✅ **미래 지향적**: 2025년 트렌드를 반영한 관심사 탐색`;
+    }
+
+    // 공통 프롬프트 부분 추가
+    prompt += `
 
 **🎯 중요: 질문과 답변의 일치성을 반드시 지켜주세요!**
 
@@ -284,13 +408,6 @@ ${
 **❌ 절대 피해야 할 잘못된 예시:**
 - "최근 웹툰 중 제일 좋았던 것은?" → 매우좋아함/좋아함/보통/관심없음 (❌ 질문-답변 불일치)
 - "어떤 드라마를 보시나요?" → 매우좋아함/좋아함/보통/관심없음 (❌ 질문-답변 불일치)
-
-**설문 생성 원칙:**
-1. ✅ **100% 한국어**: 모든 텍스트를 자연스러운 한국어로
-2. ✅ **MZ세대 친화적**: 요즘 트렌드와 문화 반영
-3. ✅ **질문-답변 일치**: 질문 형태에 맞는 답변 형태 사용
-4. ✅ **실용적 매칭**: 실제 만남에서 대화 소재가 될 주제
-5. ✅ **지역/나이별 맞춤**: ${ageGroup}에 적합한 주제
 
 **질문 영역 (8개 문항):**
 - 엔터테인먼트 (드라마, 예능, 웹툰, 유튜브)
@@ -333,22 +450,6 @@ ${
     }
   ]
 }
-
-**구체적인 질문 예시:**
-
-**관심도 질문들:**
-- "${currentSeason} 드라마에 대한 관심도는?"
-- "K-POP 음악을 얼마나 좋아하시나요?"
-- "운동에 대해 어떻게 생각하시나요?"
-- "카페 문화에 대한 관심은?"
-- "여행에 대해 어떻게 생각하시나요?"
-
-**선택형 질문들:**
-- "요즘 가장 즐겨보는 콘텐츠 장르는?"
-- "주말 데이트로 선호하는 장소는?"
-- "카페에서 주로 주문하는 음료는?"
-- "새로운 사람과 만날 때 편한 장소는?"
-- "${currentSeason}에 가장 하고 싶은 야외활동은?"
 
 **중요:** 각 질문마다 type 필드를 반드시 포함하고, 질문 형태에 맞는 답변을 제공해주세요!
 - type: "interest_level" → 관심도 질문 → 감정 기반 답변

@@ -83,6 +83,7 @@ function SurveyContent() {
           age: undefined,
           occupation: undefined,
           otherUserId: partnerId || undefined,
+          userId: user.id || undefined, // 사용자 ID 추가 (기존/신규 사용자 구분용)
         });
 
         console.log(`✅ 생성된 템플릿 ID: ${newTemplateId}`);

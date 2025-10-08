@@ -10,6 +10,7 @@ export async function generateSurveyWithOpenAI(userInfo: {
   age?: number;
   occupation?: string;
   otherUserId?: string;
+  userId?: string;
 }): Promise<any> {
   console.log("🤖 클라이언트에서 설문 생성 API 호출:", userInfo);
 
