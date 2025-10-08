@@ -24,7 +24,7 @@ type MatchPageState =
 export default function MatchPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { currentMatch, calculateMatch, isLoading, error } = useMatchStore();
 
   const [pageState, setPageState] = useState<MatchPageState>("loading");
@@ -49,12 +49,17 @@ export default function MatchPage() {
         setInitStarted(true);
         setPageState("loading");
 
-        // 1. 로그인 확인
+        // 1. 로그인 확인 - 비회원은 로그인 페이지로 이동
         if (!user) {
-          // 로그인되지 않은 경우 회원가입 페이지로 이동 (상대방 정보 포함)
-          router.push(
-            `/onboarding?redirect=/match/${params.code}&qr_code=${params.code}`
+          console.log(
+            "⚠️ 로그인되지 않은 사용자 감지, 로그인/온보딩 페이지로 이동"
           );
+
+          // 로그인되지 않은 경우 로그인 페이지로 이동 (상대방 정보 포함)
+          const redirectUrl = `/auth/login?redirect=/match/${params.code}&qr_code=${params.code}`;
+
+          console.log("🔄 리디렉션:", redirectUrl);
+          router.replace(redirectUrl); // replace로 변경하여 뒤로가기 방지
           return;
         }
 
@@ -168,8 +173,39 @@ export default function MatchPage() {
     }
   }, [calculateMatch, params.code, router, user, initStarted]);
 
-  // 로딩 상태
-  if (pageState === "loading" || isLoading) {
+  // 비회원인 경우 로그인 페이지로 즉시 리디렉션
+  useEffect(() => {
+    if (!user && !loading) {
+      console.log("⚠️ 비회원 감지, 즉시 로그인 페이지로 리디렉션");
+      const redirectUrl = `/auth/login?redirect=/match/${params.code}&qr_code=${params.code}`;
+
+      // 즉시 리디렉션
+      window.location.href = redirectUrl;
+    }
+  }, [user, loading, params.code, router]);
+
+  // 비회원이고 로딩 중이 아닌 경우 로그인 안내 화면 표시
+  if (!user && !loading) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 p-4 items-center justify-center">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full text-center">
+          <h2 className="text-xl font-bold mb-4">로그인이 필요합니다</h2>
+          <p className="mb-6 text-gray-600">
+            QR 코드를 스캔하셨습니다. 매칭 결과를 확인하려면 로그인이
+            필요합니다.
+            <br />
+            로그인 페이지로 이동합니다...
+          </p>
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 로딩 상태 (사용자가 로그인된 경우에만)
+  if ((pageState === "loading" || isLoading) && user) {
     return <LoadingScreen message="매칭을 준비하고 있습니다..." />;
   }
 

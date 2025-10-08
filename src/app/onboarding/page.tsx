@@ -93,8 +93,13 @@ export default function OnboardingPage() {
             partnerId: partnerInfo?.userId,
           });
 
-          // 프로필이 이미 완성된 경우 (이름이 있는 경우)
-          if (userProfile && userProfile.name) {
+          // 프로필이 이미 완성된 경우 (이름이 있고 비어있지 않은 경우)
+          if (
+            userProfile &&
+            userProfile.name &&
+            userProfile.name.trim() !== "" &&
+            userProfile.name !== "사용자"
+          ) {
             console.log("✅ 기존 회원의 프로필 정보 있음, 설문으로 바로 이동");
 
             // QR 코드가 있는 경우 (리디렉션 URL 체크 없이)

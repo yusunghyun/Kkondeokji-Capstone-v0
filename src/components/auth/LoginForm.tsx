@@ -26,7 +26,12 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export function LoginForm() {
+interface LoginFormProps {
+  redirectUrl?: string | null;
+  qrCode?: string | null;
+}
+
+export function LoginForm({ redirectUrl, qrCode }: LoginFormProps) {
   const { signIn } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +50,15 @@ export function LoginForm() {
       setIsLoading(true);
       setError(null);
       await signIn(data.email, data.password);
-      router.push("/");
+
+      // 리디렉션 URL이 있으면 해당 URL로 이동
+      if (redirectUrl) {
+        console.log("✅ 로그인 성공, 리디렉션:", redirectUrl);
+        router.push(redirectUrl);
+      } else {
+        console.log("✅ 로그인 성공, 홈으로 이동");
+        router.push("/");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인에 실패했습니다");
     } finally {
@@ -100,16 +113,27 @@ export function LoginForm() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex justify-center">
-        <p className="text-sm text-gray-500">
+      <CardFooter className="flex flex-col space-y-4">
+        <p className="text-sm text-gray-500 text-center">
           계정이 없으신가요?{" "}
           <Link
-            href="/auth/register"
+            href={
+              qrCode
+                ? `/auth/register?redirect=${encodeURIComponent(
+                    redirectUrl || ""
+                  )}&qr_code=${encodeURIComponent(qrCode)}`
+                : "/auth/register"
+            }
             className="text-primary-500 hover:underline"
           >
             회원가입하기
           </Link>
         </p>
+        {qrCode && (
+          <div className="text-center text-sm text-purple-600">
+            QR 코드를 스캔하셨습니다. 로그인하시면 매칭을 확인하실 수 있습니다.
+          </div>
+        )}
       </CardFooter>
     </Card>
   );

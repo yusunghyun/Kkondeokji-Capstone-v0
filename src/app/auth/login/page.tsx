@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,12 +9,26 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function LoginPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // QR 코드 및 리디렉션 URL 가져오기
+  const qrCode = searchParams.get("qr_code");
+  const redirectUrl = searchParams.get("redirect");
+
+  console.log("🔍 로그인 페이지 파라미터:", { qrCode, redirectUrl });
 
   useEffect(() => {
     if (user) {
-      router.push("/");
+      // 리디렉션 URL이 있으면 해당 URL로 이동
+      if (redirectUrl) {
+        console.log("✅ 로그인 성공, 리디렉션:", redirectUrl);
+        router.push(redirectUrl);
+      } else {
+        console.log("✅ 로그인 성공, 홈으로 이동");
+        router.push("/");
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, redirectUrl]);
 
   // if (loading) {
   //   return (
@@ -33,7 +47,7 @@ export default function LoginPage() {
       </nav>
 
       <main className="flex-1 flex flex-col items-center justify-center p-6">
-        <LoginForm />
+        <LoginForm redirectUrl={redirectUrl} qrCode={qrCode} />
       </main>
 
       <footer className="py-4 text-center text-sm text-gray-500">

@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useSurveyStore } from "@/shared/store/surveyStore";
 import { QuestionCard } from "@/features/survey/components/question-card";
 import { LoadingScreen } from "@/features/survey/components/loading-screen";
+import { AILoadingScreen } from "@/features/survey/components/ai-loading-screen";
 import { useAuth } from "@/contexts/AuthContext";
 
 function SurveyContent() {
@@ -28,6 +29,9 @@ function SurveyContent() {
     reset,
   } = useSurveyStore();
   const { generateSurvey, startSurvey } = useSurveyStore();
+
+  // AI 로딩 상태 관리
+  const [aiLoading, setAiLoading] = useState(false);
 
   const searchParams = useSearchParams();
   const templateId = searchParams.get("templateId");
@@ -70,22 +74,39 @@ function SurveyContent() {
       console.log(`🤝 파트너 ID: ${partnerId || "없음"}`);
       reset(); // 기존 설문 상태 초기화
 
-      const newTemplateId = await generateSurvey({
-        name: undefined,
-        age: undefined,
-        occupation: undefined,
-        otherUserId: partnerId || undefined,
-      });
+      // AI 로딩 화면 표시
+      setAiLoading(true);
 
-      console.log(`✅ 생성된 템플릿 ID: ${newTemplateId}`);
-      await loadSurvey(newTemplateId);
+      try {
+        const newTemplateId = await generateSurvey({
+          name: undefined,
+          age: undefined,
+          occupation: undefined,
+          otherUserId: partnerId || undefined,
+        });
 
-      // 설문 시작 (userSurveyId 생성)
-      console.log(`🏁 startSurvey 호출 (userId: ${user.id})`);
-      await startSurvey(user.id, newTemplateId);
+        console.log(`✅ 생성된 템플릿 ID: ${newTemplateId}`);
+        await loadSurvey(newTemplateId);
 
-      // URL 업데이트 (새로고침 시 동일 설문 유지)
-      router.push(`/survey?templateId=${newTemplateId}`);
+        // 설문 시작 (userSurveyId 생성)
+        console.log(`🏁 startSurvey 호출 (userId: ${user.id})`);
+        await startSurvey(user.id, newTemplateId);
+
+        // URL 업데이트 (새로고침 시 동일 설문 유지)
+        router.push(`/survey?templateId=${newTemplateId}`);
+
+        // AI 로딩 완료 후 타이머 설정 (최소 로딩 시간 보장)
+        setTimeout(() => {
+          setAiLoading(false);
+        }, 2000); // 2초 후 로딩 완료
+      } catch (error) {
+        console.error("AI 설문 생성 실패:", error);
+        setAiLoading(false); // 에러 발생 시 로딩 상태 해제
+
+        // 에러 메시지 표시 후 홈으로 이동
+        alert("설문 생성 중 오류가 발생했습니다. 다시 시도해주세요.");
+        router.push("/");
+      }
     } catch (error) {
       console.error("설문 초기화 실패:", error);
     }
@@ -97,6 +118,8 @@ function SurveyContent() {
     startSurvey,
     router,
     reset,
+    partnerId,
+    setAiLoading,
   ]);
 
   // 설문 완료 여부를 추적하는 상태
@@ -110,6 +133,12 @@ function SurveyContent() {
     }
   }, [surveyTemplate, handleInitSurvey, surveyCompleted]);
 
+  // AI 로딩 화면 표시 (AI 설문 생성 중)
+  if (aiLoading) {
+    return <AILoadingScreen userName={user?.email?.split("@")[0]} />;
+  }
+
+  // 일반 로딩 화면 표시 (설문 데이터 로딩 중)
   if (isLoading || !surveyTemplate) {
     return <LoadingScreen message="설문을 준비하고 있습니다..." />;
   }

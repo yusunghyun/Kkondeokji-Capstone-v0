@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,12 +9,29 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function RegisterPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // QR 코드 및 리디렉션 URL 가져오기
+  const qrCode = searchParams.get("qr_code");
+  const redirectUrl = searchParams.get("redirect");
+
+  console.log("🔍 회원가입 페이지 파라미터:", { qrCode, redirectUrl });
 
   useEffect(() => {
     if (!loading && user) {
-      router.push("/");
+      // 회원가입 성공 후 온보딩 페이지로 이동
+      console.log("✅ 회원가입 성공, 온보딩 페이지로 이동");
+
+      // QR 코드가 있으면 해당 정보를 온보딩 페이지로 전달
+      const onboardingUrl = qrCode
+        ? `/onboarding?qr_code=${qrCode}${
+            redirectUrl ? `&redirect=${redirectUrl}` : ""
+          }`
+        : "/onboarding";
+
+      router.push(onboardingUrl);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, qrCode, redirectUrl]);
 
   if (loading) {
     return (
@@ -33,7 +50,7 @@ export default function RegisterPage() {
       </nav>
 
       <main className="flex-1 flex flex-col items-center justify-center p-6">
-        <RegisterForm />
+        <RegisterForm redirectUrl={redirectUrl} qrCode={qrCode} />
       </main>
 
       <footer className="py-4 text-center text-sm text-gray-500">

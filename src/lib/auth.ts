@@ -64,6 +64,9 @@ export async function signOut() {
 
     // 2. 로컬 스토리지 정리
     if (typeof window !== "undefined") {
+      // 캐시된 사용자 정보 삭제
+      localStorage.removeItem("auth_user");
+
       // Supabase 관련 스토리지 정리
       localStorage.removeItem(
         "sb-" +
@@ -75,10 +78,16 @@ export async function signOut() {
       );
       localStorage.removeItem("kkondeokji-auth-token");
 
+      // Supabase 세션 쿠키 삭제 시도
+      document.cookie =
+        "sb-access-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie =
+        "sb-refresh-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
       // 세션 스토리지도 정리
       sessionStorage.clear();
 
-      console.log("로컬 스토리지 정리 완료");
+      console.log("✅ 로컬 스토리지, 쿠키, 세션 정리 완료");
     }
 
     console.log("로그아웃 성공");

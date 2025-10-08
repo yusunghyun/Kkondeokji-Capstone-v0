@@ -32,7 +32,12 @@ const registerSchema = z
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  redirectUrl?: string | null;
+  qrCode?: string | null;
+}
+
+export function RegisterForm({ redirectUrl, qrCode }: RegisterFormProps) {
   const { signUp } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
