@@ -127,44 +127,61 @@ export default function ProfilePage() {
     matchesLoaded: false,
   });
 
+  // 페이지 마운트 시 로딩 상태 초기화 (새로고침 대응)
+  useEffect(() => {
+    console.log("🔄 프로필 페이지 마운트");
+    return () => {
+      console.log("🔄 프로필 페이지 언마운트");
+    };
+  }, []);
+
   // 초기화 - 의존성 배열에서 함수들 제거하여 무한 루프 방지
   useEffect(() => {
     if (!user?.id) return;
 
     console.log("🔄 프로필 페이지 초기화 시작:", user.id);
 
-    // 로딩 상태 초기화
-    setLoadingState({
-      profileAttempted: false,
-      profileLoaded: false,
-      qrAttempted: false,
-      qrLoaded: false,
-      matchesAttempted: false,
-      matchesLoaded: false,
-    });
+    // 이미 로딩 중이거나 로드 완료된 경우 중복 실행 방지
+    if (loadingState.profileAttempted) {
+      console.log("⚠️ 이미 프로필 로드가 진행 중이거나 완료됨, 스킵");
+      return;
+    }
 
-    // 1. 프로필 데이터 로드
-    setLoadingState((prev) => ({ ...prev, profileAttempted: true }));
-    fetchProfile(user.id)
-      .then(() => {
-        console.log("✅ 프로필 데이터 로드 완료");
+    // 데이터 로드 함수 (useEffect 내부에서 정의하여 의존성 문제 해결)
+    const loadAllData = async () => {
+      try {
+        // 1. 프로필 데이터 로드
+        setLoadingState((prev) => ({ ...prev, profileAttempted: true }));
+        console.log("📋 1단계: 프로필 데이터 로드 시작");
+        await fetchProfile(user.id);
+        console.log("✅ 1단계 완료: 프로필 데이터 로드");
         setLoadingState((prev) => ({ ...prev, profileLoaded: true }));
 
         // 2. QR 코드 로드
         setLoadingState((prev) => ({ ...prev, qrAttempted: true }));
-        return fetchQRCode(user.id);
-      })
-      .then(() => {
-        console.log("✅ QR 코드 로드 완료");
+        console.log("📋 2단계: QR 코드 로드 시작");
+        await fetchQRCode(user.id);
+        console.log("✅ 2단계 완료: QR 코드 로드");
         setLoadingState((prev) => ({ ...prev, qrLoaded: true }));
 
         // 3. 매칭 기록 로드
         setLoadingState((prev) => ({ ...prev, matchesAttempted: true }));
-        return loadMatches();
-      })
-      .catch((error) => {
+        console.log("📋 3단계: 매칭 기록 로드 시작");
+        setIsLoadingMatches(true);
+        const userMatches = await getMatchRepo().getUserMatches(user.id);
+        setMatches(userMatches);
+        console.log("✅ 3단계 완료: 매칭 기록 로드");
+        setLoadingState((prev) => ({ ...prev, matchesLoaded: true }));
+        setIsLoadingMatches(false);
+
+        console.log("🎉 모든 데이터 로드 완료!");
+      } catch (error) {
         console.error("❌ 프로필 데이터 로드 실패:", error);
-      });
+        setIsLoadingMatches(false);
+      }
+    };
+
+    loadAllData();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // user.id만 의존성으로 사용

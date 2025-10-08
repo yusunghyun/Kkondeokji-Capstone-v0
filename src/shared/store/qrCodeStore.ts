@@ -8,7 +8,7 @@ interface QRCodeState {
   error: string | null;
 
   // Actions
-  generateQRCode: (userId: string) => Promise<QRCode>;
+  generateQRCode: (userId: string, forceNew?: boolean) => Promise<QRCode>;
   fetchQRCode: (userId: string) => Promise<QRCode | null>;
   clearError: () => void;
   reset: () => void;
