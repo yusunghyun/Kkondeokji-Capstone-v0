@@ -100,19 +100,24 @@ export default function MatchReportPage() {
 
     setIsGeneratingReport(true);
     try {
-      await generateEnhancedMatchReport(match.id);
+      console.log("🔄 향상된 리포트 생성 시작 - matchId:", match.id);
+
+      // 강제로 새 리포트 생성 (force=true)
+      const newInsights = await generateEnhancedMatchReport(match.id, true);
+      console.log(
+        "✅ 새 리포트 생성 완료:",
+        newInsights.substring(0, 50) + "..."
+      );
 
       // 리포트 재로드
       await loadMatchReport();
 
-      const toastTitle = hasEnhancedInsights
-        ? "매칭 리포트 재분석 완료!"
-        : "향상된 AI 리포트 생성 완료!";
-      const toastDescription = hasEnhancedInsights
-        ? "새로운 관점에서 분석한 매칭 인사이트가 업데이트되었습니다."
-        : "더 자세한 매칭 분석이 추가되었습니다.";
-
-      toast.success(toastTitle, { description: toastDescription });
+      // 리포트 생성 성공 메시지
+      toast.success("매칭 리포트 재분석 완료!", {
+        description:
+          "새로운 관점에서 분석한 매칭 인사이트가 업데이트되었습니다.",
+        duration: 5000,
+      });
     } catch (error) {
       console.error("향상된 리포트 생성 실패:", error);
       toast.error("리포트 생성 실패", {

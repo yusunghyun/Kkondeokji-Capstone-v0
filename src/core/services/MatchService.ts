@@ -166,7 +166,7 @@ function calculateMatchScore(
 export async function generateEnhancedMatchReport(
   matchId: string,
   force: boolean = false
-): Promise<void> {
+): Promise<string> {
   try {
     const matchRepo = getMatchRepo();
     const match = await matchRepo.getById(matchId);
@@ -180,16 +180,18 @@ export async function generateEnhancedMatchReport(
     const commonInterests = match.commonInterests;
     if (!commonInterests) {
       console.log("공통 관심사가 없어 리포트를 생성할 수 없습니다");
-      return;
+      return (
+        match.aiInsights || "공통 관심사가 없어 리포트를 생성할 수 없습니다"
+      );
     }
 
-    // 이미 AI 인사이트가 있고, force가 false면 건너뜀
+    // 이미 AI 인사이트가 있고, force가 false면 기존 인사이트 반환
     if (match.aiInsights && !force) {
       console.log("AI 인사이트가 이미 있어 재생성을 건너뜁니다 (force=false)");
-      return;
+      return match.aiInsights;
     }
 
-    // 사용자 이름 추출
+    // 사용자 이름 추출 (실제 이름 사용)
     const user1Name = match.user1?.name || "사용자 1";
     const user2Name = match.user2?.name || "사용자 2";
 
@@ -246,8 +248,10 @@ export async function generateEnhancedMatchReport(
     await matchRepo.updateAiInsights(matchId, enhancedInsights);
 
     console.log("✅ 향상된 매칭 리포트가 성공적으로 재생성되었습니다");
+    return enhancedInsights;
   } catch (error) {
     console.error("❌ 향상된 매칭 리포트 생성 실패:", error);
-    // 에러가 나도 기존 기능은 유지되도록 조용히 실패
+    // 에러 발생 시 에러 메시지 반환
+    return "매칭 리포트 생성 중 오류가 발생했습니다. 다시 시도해주세요.";
   }
 }
