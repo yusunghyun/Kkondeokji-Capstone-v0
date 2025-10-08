@@ -54,6 +54,14 @@ export const supabaseSurveyRepo: SurveyRepo = {
     }
 
     const templateId = templateData.id;
+    console.log("✅ 설문 템플릿 생성 완료:", templateId);
+    console.log("✅ 설문 템플릿 생성 완료 타입:", typeof templateId);
+    console.log("✅ 설문 템플릿 생성 완료 길이:", templateId?.length);
+
+    if (!templateId || templateId.trim() === "") {
+      console.error("❌ templateData.id가 비어있습니다:", templateData);
+      throw new Error("설문 템플릿 ID가 생성되지 않았습니다");
+    }
 
     // Insert questions
     for (let i = 0; i < template.questions.length; i++) {
@@ -187,6 +195,12 @@ export const supabaseSurveyRepo: SurveyRepo = {
   },
 
   async createUserSurvey(userId, templateId): Promise<string> {
+    console.log("💾 사용자 설문 생성 시도:", { userId, templateId });
+
+    if (!templateId || templateId.trim() === "") {
+      throw new Error(`templateId가 비어있습니다: "${templateId}"`);
+    }
+
     const { data, error } = await supabase
       .from("user_surveys")
       .insert([
@@ -200,10 +214,11 @@ export const supabaseSurveyRepo: SurveyRepo = {
       .single();
 
     if (error) {
-      console.error("Error creating user survey:", error);
-      throw new Error("Failed to create user survey");
+      console.error("❌ 사용자 설문 생성 실패:", error);
+      throw new Error(`Failed to create user survey: ${error.message}`);
     }
 
+    console.log("✅ 사용자 설문 생성 완료:", data.id);
     return data.id;
   },
 

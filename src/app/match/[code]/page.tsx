@@ -42,7 +42,10 @@ export default function MatchPage() {
 
         // 1. 로그인 확인
         if (!user) {
-          router.push(`/auth/login?redirect=/match/${params.code}`);
+          // 로그인되지 않은 경우 회원가입 페이지로 이동 (상대방 정보 포함)
+          router.push(
+            `/onboarding?redirect=/match/${params.code}&qr_code=${params.code}`
+          );
           return;
         }
 
@@ -82,15 +85,30 @@ export default function MatchPage() {
           return;
         }
 
-        // 4. 설문 완료 상태 확인 (TODO: 실제 설문 완료 여부 확인 로직 추가)
-        // 임시로 profile.interests가 있으면 설문 완료된 것으로 간주
-        if (!profile.interests || profile.interests.length === 0) {
+        // 4. 설문 완료 상태 확인 - 실제 완료된 설문 확인
+        try {
+          const surveyRepo = getUserRepo();
+          const completedSurveys = await surveyRepo.getUserSurveys(user.id);
+
+          if (completedSurveys.length === 0) {
+            setPageState("survey_needed");
+            return;
+          }
+        } catch (error) {
+          console.error("설문 완료 상태 확인 실패:", error);
+          // 오류 발생 시 기본적으로 설문 필요 상태로 설정
           setPageState("survey_needed");
           return;
         }
 
         // 5. 매칭 시작
         setPageState("matching");
+        console.log("매칭 계산 시작:", {
+          userId: user.id,
+          partnerId: qrUser.userId,
+          partnerName: qrUser.userName,
+        });
+
         await calculateMatch(user.id, qrUser.userId);
         setPageState("match_result");
       } catch (error) {
@@ -196,11 +214,13 @@ export default function MatchPage() {
               <Button
                 className="w-full bg-purple-500 hover:bg-purple-600"
                 onClick={() =>
-                  router.push(`/survey?redirect=/match/${params.code}`)
+                  router.push(
+                    `/survey?redirect=/match/${params.code}&partner_id=${scannedUser?.userId}`
+                  )
                 }
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                30초 설문 시작하기
+                {scannedUser?.userName}님과 맞춤 설문 시작하기
               </Button>
               <Button
                 variant="outline"
@@ -219,6 +239,7 @@ export default function MatchPage() {
   // 매칭 결과 표시
   if (pageState === "match_result" && currentMatch && scannedUser) {
     const myName = profile?.name || user?.email?.split("@")[0] || "당신";
+    const partnerName = scannedUser.userName || "매칭 상대";
 
     return (
       <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50 p-4">
@@ -241,7 +262,7 @@ export default function MatchPage() {
           <MatchReport
             matchResult={currentMatch}
             user1Name={myName}
-            user2Name={scannedUser.userName || "상대방"}
+            user2Name={partnerName}
           />
         </div>
 
@@ -252,7 +273,7 @@ export default function MatchPage() {
               navigator.share
                 ? navigator.share({
                     title: "껀덕지 - 매칭 결과",
-                    text: `${scannedUser.userName}님과 ${currentMatch.score}점으로 매칭되었습니다!`,
+                    text: `${partnerName}님과 ${currentMatch.score}점으로 매칭되었습니다!`,
                     url: window.location.href,
                   })
                 : navigator.clipboard.writeText(window.location.href);

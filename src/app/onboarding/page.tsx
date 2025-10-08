@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -13,9 +13,11 @@ import { useSurveyStore } from "@/shared/store/surveyStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 import { AILoadingScreen } from "@/features/survey/components/ai-loading-screen";
+import { getUserByQRCode } from "@/core/services/QRCodeService";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const { updateUser, currentUser } = useUserStore();
   const {
@@ -31,15 +33,61 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"register" | "profile">("register");
 
+  // QR 코드에서 상대방 정보 가져오기
+  const [partnerInfo, setPartnerInfo] = useState<{
+    userId: string;
+    userName: string | null;
+  } | null>(null);
+
+  const qrCode = searchParams.get("qr_code");
+
+  // QR 코드에서 상대방 정보 가져오기
+  useEffect(() => {
+    const fetchPartnerInfo = async () => {
+      if (qrCode) {
+        try {
+          const partner = await getUserByQRCode(qrCode);
+          if (partner) {
+            setPartnerInfo(partner);
+            console.log("✅ 상대방 정보 로드 완료:", partner);
+          }
+        } catch (error) {
+          console.error("❌ 상대방 정보 로드 실패:", error);
+        }
+      }
+    };
+
+    fetchPartnerInfo();
+  }, [qrCode]);
+
   // 인증된 사용자인 경우 프로필 입력 단계로 이동
   useEffect(() => {
-    console.log("user", user);
+    console.log("🔄 온보딩 상태 확인:", {
+      loading,
+      hasUser: !!user,
+      userId: user?.id,
+      userEmail: user?.email,
+      currentStep: step,
+    });
+
     if (!loading && user) {
+      console.log("✅ 로그인된 사용자 → profile 단계로 이동");
       setStep("profile");
-    } else {
-      router.push("/auth/login");
+    } else if (!loading && !user) {
+      console.log("ℹ️ 비로그인 사용자 → register 단계로 이동");
+      setStep("register");
+    } else if (loading) {
+      console.log("⏳ 인증 상태 확인 중...");
     }
-  }, [user, loading, router]);
+  }, [user, loading, step]);
+
+  // 회원가입 완료 후 프로필 단계로 자동 이동
+  useEffect(() => {
+    if (user && !loading && step === "register") {
+      console.log("회원가입 완료 - 프로필 단계로 자동 이동");
+      setStep("profile");
+    }
+  }, [user, loading, step]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +101,19 @@ export default function OnboardingPage() {
       }
 
       console.log("🚀 온보딩: 사용자 프로필 업데이트 시작");
+      console.log("🚀 온보딩: user 정보:", {
+        userId: user?.id,
+        userEmail: user?.email,
+        hasUser: !!user,
+      });
+
+      // user.id 검증
+      if (!user?.id) {
+        console.error("❌ 온보딩: user.id가 없습니다!", user);
+        setError("사용자 인증 정보가 없습니다. 다시 로그인해주세요.");
+        setIsSubmitting(false);
+        return;
+      }
 
       // Create user with authenticated user ID
       const updatedUser = await updateUser(
@@ -61,22 +122,51 @@ export default function OnboardingPage() {
           age: age ? Number.parseInt(age) : undefined,
           occupation: occupation || undefined,
         },
-        user?.id || ""
+        user.id
       );
 
       console.log("✅ 온보딩: 프로필 업데이트 완료, AI 설문 생성 시작");
 
-      // Generate personalized survey - 여기서 AI 로딩이 시작됩니다
+      // Generate personalized survey - 상대방 정보 포함
       const templateId = await generateSurvey({
         name: name || undefined,
         age: age ? Number.parseInt(age) : undefined,
         occupation: occupation || undefined,
+        otherUserId: partnerInfo?.userId || undefined,
       });
 
-      console.log("✅ 온보딩: AI 설문 생성 완료, 사용자 설문 시작");
+      console.log("✅ 온보딩: AI 설문 생성 완료, templateId:", templateId);
+      console.log("✅ 온보딩: templateId 타입:", typeof templateId);
+      console.log("✅ 온보딩: templateId 길이:", templateId?.length);
+      console.log("사용자 ID:", currentUser?.id);
+      console.log("사용자 설문 시작 시도...");
 
-      // Start survey
-      const userSurveyId = await startSurvey(currentUser?.id || "", templateId);
+      // templateId 검증
+      if (!templateId || templateId.trim() === "") {
+        console.error("❌ 온보딩: templateId가 비어있습니다!", templateId);
+        setError("설문 생성에 실패했습니다. 다시 시도해주세요.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Start survey - user.id 사용 (currentUser가 아직 업데이트되지 않았을 수 있음)
+      console.log("사용자 설문 시작 호출:", {
+        userId: user?.id,
+        userIdType: typeof user?.id,
+        currentUserId: currentUser?.id,
+        templateId,
+        templateIdType: typeof templateId,
+      });
+
+      if (!user?.id) {
+        console.error("❌ 온보딩: user.id가 없습니다!", user);
+        setError("사용자 인증 정보가 없습니다. 다시 로그인해주세요.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const userSurveyId = await startSurvey(user.id, templateId);
+      console.log("✅ 사용자 설문 생성 완료:", userSurveyId);
 
       console.log("🎯 온보딩: 설문 페이지로 이동");
       router.push(`/survey?templateId=${templateId}`);
@@ -117,7 +207,18 @@ export default function OnboardingPage() {
                 프로필 정보
               </CardTitle>
               <p className="text-center text-gray-600 text-sm">
-                AI가 당신만의 맞춤 설문을 만들어드려요! ✨
+                {partnerInfo ? (
+                  <>
+                    <span className="text-purple-600 font-medium">
+                      {partnerInfo.userName}
+                    </span>
+                    님과 더 정확한 매칭을 위해
+                    <br />
+                    AI가 맞춤 설문을 만들어드려요! ✨
+                  </>
+                ) : (
+                  "AI가 당신만의 맞춤 설문을 만들어드려요! ✨"
+                )}
               </p>
             </CardHeader>
             <CardContent>

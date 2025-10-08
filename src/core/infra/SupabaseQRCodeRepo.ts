@@ -5,8 +5,11 @@ import { nanoid } from "nanoid";
 
 export const supabaseQRCodeRepo: QRCodeRepo = {
   async create(userId): Promise<QRCode> {
-    // Generate a unique code
-    const code = nanoid(10);
+    // Generate a unique code that includes user info for better matching
+    // Use user ID prefix + random suffix for uniqueness
+    const userIdPrefix = userId.slice(0, 8); // First 8 chars of user ID
+    const randomSuffix = nanoid(6); // 6 char random suffix
+    const code = `${userIdPrefix}-${randomSuffix}`;
 
     // Set expiration to 7 days from now
     const expiresAt = new Date();
@@ -29,6 +32,12 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       console.error("Error creating QR code:", error);
       throw new Error("Failed to create QR code");
     }
+
+    console.log("✅ QR 코드 생성 완료:", {
+      userId,
+      code,
+      expiresAt: expiresAt.toISOString(),
+    });
 
     return {
       id: data.id,
@@ -88,6 +97,20 @@ export const supabaseQRCodeRepo: QRCodeRepo = {
       createdAt: new Date(data.created_at),
       expiresAt: data.expires_at ? new Date(data.expires_at) : null,
     };
+  },
+
+  async deleteByUserId(userId): Promise<void> {
+    const { error } = await supabase
+      .from("qr_codes")
+      .delete()
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error deleting QR code by user ID:", error);
+      throw new Error("Failed to delete QR code");
+    }
+
+    console.log("✅ QR 코드 삭제 완료:", userId);
   },
 
   async incrementScans(codeId): Promise<void> {

@@ -141,31 +141,56 @@ export class SupabaseUserRepo {
 
       // 🎯 2단계: 설문 응답 데이터 조회 (관심사 추출용)
       console.log("📊 2단계: 설문 응답 데이터 조회 시작");
-      const { data: surveyData, error: surveyError } = await supabase
-        .from("user_responses")
-        .select(
+
+      // 먼저 user_surveys에서 해당 사용자의 완료된 설문 ID 가져오기
+      const { data: userSurveys, error: userSurveyError } = await supabase
+        .from("user_surveys")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("completed", true);
+
+      if (userSurveyError) {
+        console.error("❌ 사용자 설문 조회 에러:", userSurveyError);
+      }
+
+      const userSurveyIds = userSurveys?.map((s) => s.id) || [];
+      console.log("📋 사용자의 완료된 설문 ID:", userSurveyIds);
+
+      let surveyData = null;
+      let surveyError = null;
+
+      // 완료된 설문이 있는 경우에만 응답 조회
+      if (userSurveyIds.length > 0) {
+        const { data, error } = await supabase
+          .from("user_responses")
+          .select(
+            `
+            id,
+            options (
+              id,
+              value,
+              text,
+              icon
+            ),
+            questions (
+              id,
+              text,
+              weight
+            ),
+            user_surveys (
+              id,
+              user_id,
+              completed
+            )
           `
-          id,
-          options (
-            id,
-            value,
-            text,
-            icon
-          ),
-          questions (
-            id,
-            text,
-            weight
-          ),
-          user_surveys (
-            id,
-            user_id,
-            completed
           )
-        `
-        )
-        .eq("user_surveys.user_id", userId)
-        .eq("user_surveys.completed", true);
+          .in("user_survey_id", userSurveyIds);
+
+        surveyData = data;
+        surveyError = error;
+      } else {
+        console.log("ℹ️ 완료된 설문이 없습니다");
+      }
 
       if (surveyError) {
         console.error("❌ 설문 데이터 조회 에러:", surveyError);

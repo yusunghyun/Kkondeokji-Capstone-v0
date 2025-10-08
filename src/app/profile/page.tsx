@@ -131,8 +131,25 @@ export default function ProfilePage() {
     if (!userQRCode) return;
     const shareUrl = `${window.location.origin}/match/${userQRCode.code}`;
     navigator.clipboard.writeText(shareUrl);
-    alert("링크가 클립보드에 복사되었습니다!");
+    alert(
+      `링크가 클립보드에 복사되었습니다!\n\nQR 코드: ${userQRCode.code}\nURL: ${shareUrl}`
+    );
   }, [userQRCode]);
+
+  // QR 코드 생성 완료 핸들러
+  const handleQRCodeGenerated = useCallback((qrCode: any) => {
+    console.log("🎉 QR 코드 생성 완료!", {
+      code: qrCode.code,
+      userId: qrCode.userId,
+      url: `${window.location.origin}/match/${qrCode.code}`,
+    });
+
+    // 사용자에게 새 QR 코드 정보를 알림
+    const shareUrl = `${window.location.origin}/match/${qrCode.code}`;
+    alert(
+      `새 QR 코드가 생성되었습니다!\n\n코드: ${qrCode.code}\n공유 URL: ${shareUrl}`
+    );
+  }, []);
 
   if (isLoading) {
     return <LoadingScreen message="프로필 정보를 불러오는 중입니다..." />;
@@ -145,6 +162,12 @@ export default function ProfilePage() {
   const profileUrl = userQRCode
     ? `${window.location.origin}/match/${userQRCode.code}`
     : `${window.location.origin}/match/${profile.id}`;
+
+  console.log("프로필 URL 생성:", {
+    userQRCode: userQRCode?.code,
+    profileUrl,
+    profileId: profile.id,
+  });
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-green-50 to-blue-50">
@@ -346,9 +369,46 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="flex flex-col items-center">
                 {userQRCode ? (
-                  <QRCodeDisplay userId={profile.id} profileUrl={profileUrl} />
+                  <div className="space-y-4">
+                    <QRCodeDisplay
+                      userId={profile.id}
+                      profileUrl={profileUrl}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        console.log("QR 코드 새로고침 버튼 클릭:", profile.id);
+                        try {
+                          const newQRCode = await generateQRCode(
+                            profile.id,
+                            true
+                          ); // 강제 새로 생성
+                          handleQRCodeGenerated(newQRCode);
+                        } catch (error) {
+                          console.error("QR 코드 새로고침 실패:", error);
+                        }
+                      }}
+                      className="w-full"
+                    >
+                      QR 코드 새로 생성하기
+                    </Button>
+                  </div>
                 ) : (
-                  <Button onClick={() => generateQRCode(profile.id)}>
+                  <Button
+                    onClick={async () => {
+                      console.log("QR 코드 생성 버튼 클릭:", profile.id);
+                      try {
+                        const newQRCode = await generateQRCode(
+                          profile.id,
+                          true
+                        ); // 강제 새로 생성
+                        handleQRCodeGenerated(newQRCode);
+                      } catch (error) {
+                        console.error("QR 코드 생성 실패:", error);
+                      }
+                    }}
+                  >
                     QR 코드 생성하기
                   </Button>
                 )}

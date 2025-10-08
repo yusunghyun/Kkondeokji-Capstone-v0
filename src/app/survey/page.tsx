@@ -31,6 +31,8 @@ function SurveyContent() {
 
   const searchParams = useSearchParams();
   const templateId = searchParams.get("templateId");
+  const partnerId = searchParams.get("partner_id");
+  const redirectUrl = searchParams.get("redirect");
 
   useEffect(() => {
     console.log("설문 페이지 초기화:", {
@@ -52,28 +54,34 @@ function SurveyContent() {
 
       // 템플릿 ID가 URL에 있는 경우
       if (templateId) {
-        console.log(`템플릿 ID로 설문 로딩: ${templateId}`);
+        console.log(`📋 템플릿 ID로 설문 로딩: ${templateId}`);
+        console.log(`👤 현재 사용자 ID: ${user.id} (${user.email})`);
         await loadSurvey(templateId);
 
         // 설문 시작 (userSurveyId 생성)
+        console.log(`🏁 startSurvey 호출 (userId: ${user.id})`);
         await startSurvey(user.id, templateId);
         return;
       }
 
       // 템플릿 ID가 없는 경우 새 설문 생성
-      console.log("새 설문 템플릿 생성");
+      console.log("🆕 새 설문 템플릿 생성");
+      console.log(`👤 현재 사용자 ID: ${user.id} (${user.email})`);
+      console.log(`🤝 파트너 ID: ${partnerId || "없음"}`);
       reset(); // 기존 설문 상태 초기화
 
       const newTemplateId = await generateSurvey({
         name: undefined,
         age: undefined,
         occupation: undefined,
+        otherUserId: partnerId || undefined,
       });
 
-      console.log(`생성된 템플릿 ID: ${newTemplateId}`);
+      console.log(`✅ 생성된 템플릿 ID: ${newTemplateId}`);
       await loadSurvey(newTemplateId);
 
       // 설문 시작 (userSurveyId 생성)
+      console.log(`🏁 startSurvey 호출 (userId: ${user.id})`);
       await startSurvey(user.id, newTemplateId);
 
       // URL 업데이트 (새로고침 시 동일 설문 유지)
@@ -194,8 +202,72 @@ function SurveyContent() {
 
   const handleSubmit = async () => {
     try {
+      // partnerId를 미리 저장 (submitSurvey 후에 reset되므로)
+      const savedPartnerId = partnerId;
+      const savedRedirectUrl = redirectUrl;
+
+      console.log("🎯 설문 제출 시작:", {
+        userId: user?.id,
+        partnerId: savedPartnerId,
+        redirectUrl: savedRedirectUrl,
+      });
+
       await submitSurvey();
-      router.push("/profile");
+
+      // ✨ QR 스캔 후 설문 완료 시 자동 매칭 생성
+      if (savedPartnerId && user?.id) {
+        console.log("🎯 자동 매칭 생성 시작:", {
+          currentUser: user.id,
+          currentUserEmail: user.email,
+          partnerId: savedPartnerId,
+        });
+
+        try {
+          // RealMatchService를 통한 매칭 계산
+          console.log("📡 매칭 API 호출 중...");
+          const response = await fetch("/api/calculate-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user1Id: user.id,
+              user2Id: savedPartnerId,
+            }),
+          });
+
+          console.log("📡 매칭 API 응답 상태:", response.status);
+
+          if (response.ok) {
+            const matchResult = await response.json();
+            console.log("✅ 자동 매칭 생성 완료:", matchResult);
+
+            // 매칭 결과 페이지로 이동
+            if (matchResult.matchId) {
+              console.log("🎉 매칭 리포트로 이동:", matchResult.matchId);
+              router.push(`/match/report/${matchResult.matchId}`);
+              return;
+            } else {
+              console.warn("⚠️ matchId가 없습니다:", matchResult);
+            }
+          } else {
+            const errorText = await response.text();
+            console.error("❌ 자동 매칭 생성 실패:", {
+              status: response.status,
+              error: errorText,
+            });
+          }
+        } catch (error) {
+          console.error("❌ 자동 매칭 생성 에러:", error);
+          // 매칭 생성 실패 시에도 계속 진행
+        }
+      } else {
+        console.log("ℹ️ partnerId 또는 user.id가 없어 자동 매칭 건너뜀:", {
+          hasPartnerId: !!savedPartnerId,
+          hasUserId: !!user?.id,
+        });
+      }
+
+      // 리다이렉션 URL이 있으면 해당 URL로, 없으면 프로필로 이동
+      router.push(savedRedirectUrl || "/profile");
     } catch (error) {
       console.error("Failed to submit survey:", error);
     }

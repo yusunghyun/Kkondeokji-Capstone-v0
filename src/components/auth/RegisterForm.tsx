@@ -51,8 +51,9 @@ export function RegisterForm() {
       setIsLoading(true);
       setError(null);
       await signUp(data.email, data.password);
-      // 회원가입 후 온보딩으로 이동
-      router.push("/onboarding");
+      // 회원가입 완료 후 현재 페이지에서 프로필 입력 단계로 이동
+      // (이미 온보딩 페이지에 있으므로 리다이렉션 불필요)
+      console.log("회원가입 완료 - 프로필 입력 단계로 이동");
     } catch (err) {
       setError(err instanceof Error ? err.message : "회원가입에 실패했습니다");
     } finally {

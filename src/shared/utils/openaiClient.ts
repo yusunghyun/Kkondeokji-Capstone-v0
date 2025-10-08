@@ -28,6 +28,16 @@ export async function generateSurveyWithOpenAI(userInfo: {
     }
 
     const result = await response.json();
+    console.log("✅ 설문 생성 API 응답:", {
+      hasTitle: !!result.title,
+      hasQuestions: !!result.questions,
+      questionCount: result.questions?.length,
+      firstQuestion: result.questions?.[0]?.text,
+    });
+
+    if (!result || !result.questions || result.questions.length === 0) {
+      throw new Error("설문 데이터가 올바르지 않습니다");
+    }
 
     console.log("✅ 서버에서 설문 생성 완료!");
     console.log("📋 생성된 설문:", {

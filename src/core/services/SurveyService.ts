@@ -45,6 +45,14 @@ export async function generatePersonalizedSurvey(userInfo: {
     });
 
     console.log("🎯 AI 설문 생성 완료:", templateId);
+    console.log("🎯 AI 설문 생성 완료 타입:", typeof templateId);
+    console.log("🎯 AI 설문 생성 완료 길이:", templateId?.length);
+
+    if (!templateId || templateId.trim() === "") {
+      console.error("❌ createTemplate에서 빈 templateId 반환:", templateId);
+      throw new Error("설문 템플릿 생성에 실패했습니다");
+    }
+
     return templateId;
   } catch (error) {
     console.error("❌ AI 설문 생성 실패:", error);
@@ -245,7 +253,13 @@ export async function startUserSurvey(
   userId: string,
   templateId: string
 ): Promise<string> {
-  return getSurveyRepo().createUserSurvey(userId, templateId);
+  console.log("🚀 사용자 설문 시작:", { userId, templateId });
+  const userSurveyId = await getSurveyRepo().createUserSurvey(
+    userId,
+    templateId
+  );
+  console.log("✅ 사용자 설문 생성 완료:", userSurveyId);
+  return userSurveyId;
 }
 
 export async function saveUserResponses(
