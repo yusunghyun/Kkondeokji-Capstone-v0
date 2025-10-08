@@ -28,3 +28,22 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## 세션 관리
+
+이 프로젝트는 강화된 세션 관리 시스템을 사용합니다:
+
+- ✅ **멀티 디바이스 지원**: 여러 기기에서 로그인해도 세션 충돌 없음
+- ✅ **자동 세션 정리**: 로그인/로그아웃 시 완전한 세션 초기화
+- ✅ **탭 간 동기화**: 한 탭에서 로그아웃하면 모든 탭 동기화
+- ✅ **자동 재검증**: 페이지 포커스 시 세션 자동 확인
+
+자세한 내용은 [세션 관리 가이드](./docs/SESSION_MANAGEMENT.md)를 참조하세요.
+
+### 개발 시 유용한 명령어
+
+```typescript
+// 세션 디버그 정보 출력 (개발 환경)
+import { debugSession } from '@/lib/session-manager';
+await debugSession();
+```

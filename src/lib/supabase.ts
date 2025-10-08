@@ -26,6 +26,8 @@ const getSupabaseClient = () => {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storageKey: "kkondeokji-auth-token",
+      // 멀티 탭/디바이스 세션 충돌 방지
+      flowType: "pkce", // PKCE 플로우 사용 (보안 강화)
       storage: {
         getItem: (key) => {
           if (typeof window === "undefined") {
@@ -60,9 +62,20 @@ const getSupabaseClient = () => {
       },
       debug: false, // 프로덕션에서는 false
     },
+    global: {
+      headers: {
+        "x-application-name": "kkondeokji",
+      },
+    },
   });
 
   return supabaseInstance;
 };
+
+// Supabase 클라이언트 재설정 함수 (세션 충돌 시 사용)
+export function resetSupabaseClient() {
+  console.log("🔄 Supabase 클라이언트 재설정");
+  supabaseInstance = null;
+}
 
 export const supabase = getSupabaseClient();
