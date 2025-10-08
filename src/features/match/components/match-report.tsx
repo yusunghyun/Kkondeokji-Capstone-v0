@@ -164,7 +164,7 @@ export function MatchReport({
         </CardContent>
       </Card>
 
-      {/* AI 인사이트 카드 - 깔끔하게 개선 */}
+      {/* AI 인사이트 카드 - 간결하고 깔끔하게 */}
       {matchResult.aiInsights && (
         <Card className="border-purple-200 shadow-lg bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
           <CardHeader>
@@ -174,39 +174,10 @@ export function MatchReport({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* AI 인사이트를 문장 단위로 분리하여 카드로 표시 */}
-            <div className="space-y-3">
-              {matchResult.aiInsights
-                .split(/[.!?]\s+/)
-                .filter((s) => s.trim())
-                .slice(0, 4)
-                .map((sentence, index) => {
-                  const trimmed = sentence.trim();
-                  if (!trimmed) return null;
-
-                  // 이모지와 아이콘 매핑
-                  const icons = ["💡", "🎯", "✨", "💬"];
-                  const colors = [
-                    "from-purple-50 to-pink-50 border-purple-300",
-                    "from-blue-50 to-indigo-50 border-blue-300",
-                    "from-green-50 to-emerald-50 border-green-300",
-                    "from-orange-50 to-yellow-50 border-orange-300",
-                  ];
-
-                  return (
-                    <div
-                      key={index}
-                      className={`bg-gradient-to-r ${
-                        colors[index % 4]
-                      } p-4 rounded-lg border-l-4 shadow-sm hover:shadow-md transition-all`}
-                    >
-                      <p className="text-gray-800 text-sm leading-relaxed flex items-start gap-2">
-                        <span className="text-lg">{icons[index % 4]}</span>
-                        <span className="flex-1">{trimmed}.</span>
-                      </p>
-                    </div>
-                  );
-                })}
+            <div className="bg-white/70 backdrop-blur-sm p-5 rounded-xl border-l-4 border-purple-400 shadow-sm">
+              <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-line">
+                {matchResult.aiInsights}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -322,50 +293,78 @@ export function MatchReport({
         </Card>
       )}
 
-      {/* 대화 시작 제안 - 개선된 UI */}
-      <Card className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-indigo-200 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-center text-indigo-700 flex items-center justify-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            💬 대화 시작 제안
-            <Sparkles className="h-4 w-4" />
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {matchResult.commonResponses.slice(0, 3).map((response, index) => (
-              <div
-                key={index}
-                className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-indigo-100 hover:shadow-md transition-all hover:scale-[1.02]"
-              >
-                <p className="text-sm text-gray-700 font-medium flex items-start gap-2">
-                  <span className="text-indigo-500 font-bold">💭</span>"
-                  <span className="text-indigo-600 font-semibold">
-                    {response.answer}
-                  </span>
-                  "에 대해 더 자세히 이야기해보는 건 어떨까요?
+      {/* 대화 시작 가이드 - 실제 공통 관심사 기반 */}
+      {matchResult.commonTags.length > 0 && (
+        <Card className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border-indigo-200 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-center text-indigo-700 flex items-center justify-center gap-2">
+              <MessageCircle className="h-5 w-5" />
+              💬 오늘의 대화 주제
+              <Sparkles className="h-4 w-4" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* 인사말 */}
+              <div className="bg-white/90 p-4 rounded-xl shadow-sm border-l-4 border-indigo-400">
+                <p className="text-sm text-gray-800 font-medium mb-2">
+                  👋 <strong className="text-indigo-600">첫 인사</strong>
+                </p>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  "{user1Name}님과 {user2Name}님은{" "}
+                  <strong className="text-indigo-600">
+                    {matchResult.commonTags.length}개
+                  </strong>
+                  의 공통 관심사가 있네요! 먼저 가볍게 인사를 나눠보세요."
                 </p>
               </div>
-            ))}
-            {matchResult.commonResponses.length === 0 && (
-              <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-indigo-100">
-                <p className="text-sm text-gray-700 font-medium flex items-center gap-2">
-                  <span className="text-indigo-500">🌟</span>
-                  서로의 다른 취향에 대해 궁금한 점을 물어보세요! 차이점이
-                  새로운 매력이 될 수 있어요.
-                </p>
-              </div>
-            )}
-          </div>
 
-          {/* 추가 대화 팁 */}
-          <div className="mt-4 p-3 bg-white/50 rounded-lg border border-indigo-200">
-            <p className="text-xs text-indigo-600 text-center font-medium">
-              💡 팁: 공통 관심사로 대화를 시작하고, 서로의 경험을 나눠보세요!
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+              {/* 공통 관심사 대화 주제 */}
+              {matchResult.commonTags.slice(0, 3).map((tag, index) => {
+                const starters = [
+                  `"${tag}"에 대해 어떻게 알게 되셨어요?`,
+                  `"${tag}"을(를) 시작한 지 얼마나 되셨나요?`,
+                  `"${tag}"에서 가장 좋아하는 점은 뭔가요?`,
+                  `"${tag}"에 대한 추천이 있다면 공유해주세요!`,
+                ];
+                const starter = starters[index % starters.length];
+
+                return (
+                  <div
+                    key={index}
+                    className="bg-white/90 p-4 rounded-xl shadow-sm border-l-4 border-purple-400 hover:shadow-md transition-all"
+                  >
+                    <p className="text-sm text-gray-800 font-medium mb-2">
+                      {index === 0 ? "🎯" : index === 1 ? "✨" : "💡"}{" "}
+                      <strong className="text-purple-600">
+                        대화 주제 {index + 1}
+                      </strong>
+                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-indigo-600">
+                        📌 공통 관심사: "{tag}"
+                      </p>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        💬 대화 시작:{" "}
+                        <span className="italic">"{starter}"</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 추가 팁 */}
+              <div className="mt-4 p-3 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-lg border border-indigo-300">
+                <p className="text-xs text-indigo-700 text-center font-medium leading-relaxed">
+                  💡 <strong>대화 팁:</strong> 공통 관심사로 시작해서 서로의
+                  경험과 생각을 자연스럽게 나눠보세요. 궁금한 점은 편하게
+                  물어보는 것이 좋아요!
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 🎯 관심사 설문 카드 */}
       <Card className="bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-lg">

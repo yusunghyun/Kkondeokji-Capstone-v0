@@ -17,6 +17,19 @@ export async function calculateRealMatch(
   try {
     console.log("🎯 실제 매칭 계산 시작:", { user1Id, user2Id });
 
+    // ✨ 0️⃣ 먼저 사용자 프로필 정보 가져오기 (interests 배열 포함)
+    const userRepo = getUserRepo();
+    const user1Profile = await userRepo.getProfile(user1Id);
+    const user2Profile = await userRepo.getProfile(user2Id);
+
+    const user1Interests = user1Profile?.interests || [];
+    const user2Interests = user2Profile?.interests || [];
+
+    console.log("🏷️ 사용자 관심사:", {
+      user1: user1Interests.length,
+      user2: user2Interests.length,
+    });
+
     // Get user surveys
     const user1Survey = await getUserCompletedSurvey(user1Id);
     const user2Survey = await getUserCompletedSurvey(user2Id);
@@ -59,16 +72,42 @@ export async function calculateRealMatch(
       optionMap
     );
 
+    // ✨ 1.5️⃣ interests 배열 비교하여 공통 관심사 추가
+    const commonInterests = user1Interests.filter((interest) =>
+      user2Interests.some(
+        (i2) =>
+          i2.toLowerCase().trim() === interest.toLowerCase().trim() ||
+          i2.toLowerCase().includes(interest.toLowerCase()) ||
+          interest.toLowerCase().includes(i2.toLowerCase())
+      )
+    );
+
+    console.log("🎯 공통 관심사 발견:", {
+      count: commonInterests.length,
+      interests: commonInterests,
+    });
+
+    // 공통 관심사를 commonTags에 추가 (중복 제거)
+    const allCommonTags = Array.from(
+      new Set([...baseResult.commonTags, ...commonInterests])
+    );
+
+    // 공통 관심사당 5점 추가
+    const interestBonus = commonInterests.length * 5;
+
     console.log("📊 기본 매칭 결과:", {
       baseScore: baseResult.score,
-      commonCount: baseResult.commonTags.length,
+      interestBonus,
+      commonTagsFromResponses: baseResult.commonTags.length,
+      commonInterests: commonInterests.length,
+      totalCommonTags: allCommonTags.length,
     });
 
     // 2️⃣ AI 기반 의미적 유사성 분석 (기본 점수가 낮을 때만)
-    let finalScore = baseResult.score;
+    let finalScore = baseResult.score + interestBonus;
     let semanticMatches: any[] = [];
 
-    if (baseResult.score < 50) {
+    if (finalScore < 50) {
       console.log("🧠 기본 점수가 낮아 AI 의미적 분석 시작");
 
       try {
@@ -131,27 +170,46 @@ export async function calculateRealMatch(
     const user1 = await getUserRepo().getById(user1Id);
     const user2 = await getUserRepo().getById(user2Id);
 
-    // Generate enhanced insights
-    let aiInsights = generateSimpleInsights(
-      baseResult,
-      user1?.name,
-      user2?.name
-    );
+    // ✨ Generate enhanced insights - 간결하고 핵심만
+    let aiInsights = "";
 
-    // 의미적 매칭이 있다면 인사이트에 추가
-    if (semanticMatches.length > 0) {
-      const semanticInsight = semanticMatches
-        .slice(0, 2) // 상위 2개만
-        .map(
-          (match) =>
-            `${match.user1Answer}와 ${
-              match.user2Answer
-            }는 ${match.commonCategories.join(", ")}라는 공통분모가 있어요.`
-        )
-        .join(" ");
+    if (allCommonTags.length > 0) {
+      // 공통 관심사가 있을 때 - 간결하게 3문장 이내
+      const topTags = allCommonTags.slice(0, 3);
+      const scoreDescription =
+        finalScore >= 80
+          ? "정말 잘 맞는"
+          : finalScore >= 60
+          ? "잘 맞는"
+          : finalScore >= 40
+          ? "어느 정도 맞는"
+          : "새로운";
 
-      aiInsights += ` ${semanticInsight}`;
+      aiInsights = `${user1?.name || "당신"}님과 ${
+        user2?.name || "상대방"
+      }님은 ${scoreDescription} 궁합이에요! "${topTags.join(
+        ", "
+      )}"에 공통 관심사가 있네요.`;
+
+      if (baseResult.commonResponses.length > 0) {
+        aiInsights += ` ${baseResult.commonResponses.length}개의 질문에 같은 답변을 하셨어요.`;
+      }
+
+      aiInsights += ` 이 주제로 먼저 대화를 시작해보세요!`;
+    } else {
+      // 공통점이 없을 때 - 매우 간결하게
+      aiInsights = `${user1?.name || "당신"}님과 ${
+        user2?.name || "상대방"
+      }님은 서로 다른 관심사를 가지고 있어요. 새로운 경험을 나누며 대화해보세요!`;
     }
+
+    // 의미적 매칭 - 1개만 간단히
+    if (semanticMatches.length > 0) {
+      const bestMatch = semanticMatches[0];
+      aiInsights += ` "${bestMatch.commonCategories[0]}"로 연결될 수 있어요.`;
+    }
+
+    console.log("🤖 생성된 AI 인사이트:", aiInsights);
 
     // Save match to database with final score
     await getMatchRepo().create({
@@ -159,7 +217,7 @@ export async function calculateRealMatch(
       user2Id,
       matchScore: finalScore, // 보정된 최종 점수 사용
       commonInterests: {
-        tags: Array.from(new Set(baseResult.commonTags)), // 중복 제거
+        tags: allCommonTags, // ✨ 모든 공통 태그 사용
         responses: baseResult.commonResponses,
       },
       aiInsights,
@@ -167,7 +225,7 @@ export async function calculateRealMatch(
 
     return {
       score: finalScore, // 보정된 최종 점수
-      commonTags: Array.from(new Set(baseResult.commonTags)),
+      commonTags: allCommonTags, // ✨ 모든 공통 태그 반환
       commonResponses: baseResult.commonResponses,
       aiInsights,
     };
