@@ -442,7 +442,7 @@ export default function ProfilePage() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="text-3xl font-bold text-pink-500">
-                          {match.matchScore}%
+                          {match.matchScore}점
                         </div>
                         <div>
                           <div className="font-medium">
