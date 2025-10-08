@@ -143,20 +143,6 @@ export default function ProfilePage() {
       matchesLoaded: false,
     });
 
-    // 프로필 로드 타임아웃 설정
-    const profileTimeout = setTimeout(() => {
-      if (!loadingState.profileLoaded && user) {
-        console.log("⚠️ 프로필 로드 타임아웃 - 세션 확인 필요");
-        // 세션 문제가 의심되는 경우 로그아웃 처리
-        if (typeof window !== "undefined") {
-          alert(
-            "세션이 만료되었거나 프로필 로드에 실패했습니다. 다시 로그인해주세요."
-          );
-          signOut();
-        }
-      }
-    }, 8000); // 8초 타임아웃
-
     // 1. 프로필 데이터 로드
     setLoadingState((prev) => ({ ...prev, profileAttempted: true }));
     fetchProfile(user.id)
@@ -176,19 +162,10 @@ export default function ProfilePage() {
         setLoadingState((prev) => ({ ...prev, matchesAttempted: true }));
         return loadMatches();
       })
-      .then(() => {
-        console.log("✅ 매칭 기록 로드 완료");
-        setLoadingState((prev) => ({ ...prev, matchesLoaded: true }));
-        clearTimeout(profileTimeout);
-      })
       .catch((error) => {
         console.error("❌ 프로필 데이터 로드 실패:", error);
-        clearTimeout(profileTimeout);
       });
 
-    return () => {
-      clearTimeout(profileTimeout);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // user.id만 의존성으로 사용
 
